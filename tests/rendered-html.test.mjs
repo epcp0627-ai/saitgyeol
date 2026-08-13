@@ -63,12 +63,15 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.match(page, /function getPreferredModes/);
   assert.match(page, /function hasStructuredBody/);
   assert.match(page, /function resolveTheme/);
+  assert.match(page, /function createCustomTheme/);
   assert.match(page, /function resolveCardPalette/);
   assert.match(page, /const backdrop = data\.customTone\.toLowerCase\(\)/);
   assert.match(page, /const tape = resolveTape\(theme\.backdrop, \[theme\.backdrop\]\)/);
-  assert.match(page, /tape: resolveTape\(backdrop, \[backdrop\]\)/);
-  assert.match(page, /<Field label="카드 바깥 배경색" hint="완성 이미지의 바깥 배경만 바뀌어요">/);
+  assert.match(page, /return resolveTheme\(createCustomTheme\(backdrop\)\)/);
+  assert.match(page, /<Field label="카드 바깥 배경색" hint="고른 색에 맞춰 종이 색감도 함께 바뀌어요">/);
   assert.match(page, /value=\{data\.customTone \|\| themes\[data\.theme\]\.backdrop\}/);
+  assert.match(page, /data\.theme === key && !data\.customTone && "is-active"/);
+  assert.match(page, /theme: key, customTone: ""/);
   assert.match(page, /customTone/);
   assert.match(page, /KAKAOTALK/);
   assert.match(page, /다른 브라우저로 열기/);

@@ -167,6 +167,7 @@ function resolveTheme(theme: Theme): CardPalette {
   let accentSoft = mixHex(theme.paper, accent, 0.085);
   accent = ensureContrast(accent, [theme.paper, accentSoft], theme.ink);
   accentSoft = mixHex(theme.paper, accent, 0.085);
+  accent = ensureContrast(accent, [theme.paper, accentSoft], theme.ink);
   const leaf = mixHex(accent, theme.ink, 0.16);
   const sun = mixHex(theme.paper, theme.backdrop, 0.62);
   const photoPaper = mixHex(theme.paper, theme.backdrop, 0.18);
@@ -183,15 +184,23 @@ function resolveTheme(theme: Theme): CardPalette {
   };
 }
 
-function resolveCardPalette(data: Pick<CardData, "theme" | "customTone">) {
-  const palette = resolveTheme(themes[data.theme]);
-  if (!HEX_COLOR.test(data.customTone)) return palette;
-  const backdrop = data.customTone.toLowerCase();
+function createCustomTheme(backdrop: string): Theme {
+  const isDark = relativeLuminance(backdrop) < 0.11;
+  const paper = mixHex(backdrop, "#fffdf7", isDark ? 0.22 : 0.82);
   return {
-    ...palette,
+    name: "나만의 종이",
+    note: "고른 배경색에서 이어지는 종이",
     backdrop,
-    tape: resolveTape(backdrop, [backdrop]),
+    paper,
+    ink: isDark ? "#fffdf7" : "#17212a",
+    tone: mixHex(backdrop, isDark ? "#fffdf7" : "#17212a", isDark ? 0.7 : 0.52),
   };
+}
+
+function resolveCardPalette(data: Pick<CardData, "theme" | "customTone">) {
+  if (!HEX_COLOR.test(data.customTone)) return resolveTheme(themes[data.theme]);
+  const backdrop = data.customTone.toLowerCase();
+  return resolveTheme(createCustomTheme(backdrop));
 }
 
 function readableColor(background: string, first: string, second: string) {
@@ -2166,9 +2175,9 @@ export default function Home() {
                           <button
                             type="button"
                             key={key}
-                            className={cn("theme-choice", data.theme === key && "is-active")}
-                            aria-pressed={data.theme === key}
-                            onClick={() => update("theme", key)}
+                            className={cn("theme-choice", data.theme === key && !data.customTone && "is-active")}
+                            aria-pressed={data.theme === key && !data.customTone}
+                            onClick={() => setData((current) => ({ ...current, theme: key, customTone: "" }))}
                           >
                             <span
                               className="theme-swatches"
@@ -2189,7 +2198,7 @@ export default function Home() {
                     </div>
                   </Field>
 
-                  <Field label="카드 바깥 배경색" hint="완성 이미지의 바깥 배경만 바뀌어요">
+                  <Field label="카드 바깥 배경색" hint="고른 색에 맞춰 종이 색감도 함께 바뀌어요">
                     <div className={cn("custom-color-picker", data.customTone && "is-active") }>
                       <label className="color-input-label">
                         <input
@@ -2324,3 +2333,4 @@ export default function Home() {
     </div>
   );
 }
+
