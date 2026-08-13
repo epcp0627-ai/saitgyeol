@@ -145,11 +145,20 @@ function contrastRatio(first: string, second: string) {
 
 function ensureContrast(color: string, surfaces: string[], toward: string, minimum = 4.5) {
   let adjusted = color;
-  for (let step = 0; step < 20; step += 1) {
+  for (let step = 0; step < 40; step += 1) {
     if (surfaces.every((surface) => contrastRatio(adjusted, surface) >= minimum)) return adjusted;
     adjusted = mixHex(adjusted, toward, 0.1);
   }
   return adjusted;
+}
+
+function resolveTape(background: string, surfaces: string[]) {
+  const lightTape = "#fff0b3";
+  const darkTape = "#4a342f";
+  const minContrast = (color: string) =>
+    Math.min(...surfaces.map((surface) => contrastRatio(color, surface)));
+  const target = minContrast(lightTape) >= minContrast(darkTape) ? lightTape : darkTape;
+  return ensureContrast(mixHex(background, target, 0.58), surfaces, target, 3);
 }
 
 function resolveTheme(theme: Theme): CardPalette {
@@ -160,9 +169,8 @@ function resolveTheme(theme: Theme): CardPalette {
   accentSoft = mixHex(theme.paper, accent, 0.085);
   const leaf = mixHex(accent, theme.ink, 0.16);
   const sun = mixHex(theme.paper, theme.backdrop, 0.62);
-  const tape = relativeLuminance(theme.paper) < 0.18
-    ? mixHex(theme.tone, theme.ink, 0.25)
-    : sun;
+  const photoPaper = mixHex(theme.paper, theme.backdrop, 0.18);
+  const tape = resolveTape(theme.backdrop, [theme.backdrop]);
   return {
     ...theme,
     accent,
@@ -170,23 +178,30 @@ function resolveTheme(theme: Theme): CardPalette {
     sun,
     accentSoft,
     leafSoft: mixHex(theme.paper, leaf, 0.085),
-    photoPaper: mixHex(theme.paper, theme.backdrop, 0.18),
+    photoPaper,
     tape,
   };
 }
 
 function resolveCardPalette(data: Pick<CardData, "theme" | "customTone">) {
-  if (!HEX_COLOR.test(data.customTone)) return resolveTheme(themes[data.theme]);
-  return resolveTheme({
-    ...themes[data.theme],
-    name: "나만의 색",
-    note: "고른 색을 차분하게 맞춘 팔레트",
-    tone: data.customTone.toLowerCase(),
-  });
+  const palette = resolveTheme(themes[data.theme]);
+  if (!HEX_COLOR.test(data.customTone)) return palette;
+  const backdrop = data.customTone.toLowerCase();
+  return {
+    ...palette,
+    backdrop,
+    tape: resolveTape(backdrop, [backdrop]),
+  };
 }
 
 function readableColor(background: string, first: string, second: string) {
   return contrastRatio(background, first) >= contrastRatio(background, second) ? first : second;
+}
+
+function readablePreviewColor(background: string, first: string, second: string) {
+  const preferred = readableColor(background, first, second);
+  const target = relativeLuminance(background) > 0.179 ? "#000000" : "#ffffff";
+  return ensureContrast(preferred, [background], target, 4.5);
 }
 
 const defaultData: CardData = {
@@ -259,7 +274,7 @@ const MODE_OPTIONS = ["일반게임", "랭크게임", "코발트"] as const;
 const PLAY_STYLE_OPTIONS = ["즐겜", "빡겜", "승리지향"] as const;
 const TIME_OPTIONS = ["오전", "오후", "밤", "새벽", "주말", "랜덤"] as const;
 const ACTIVITY_OPTIONS = ["게임", "마음", "멘션", "일상"] as const;
-const CUSTOM_TONE_OPTIONS = ["#b5695f", "#a87542", "#657a52", "#4f7977", "#5d6f9c", "#856985"] as const;
+const CUSTOM_TONE_OPTIONS = ["#eadcc9", "#e5cbd2", "#d7cfea", "#c9dce5", "#d6e3c5", "#343b53"] as const;
 
 const MODE_ALIASES: Record<string, string> = {
   일반: "일반게임",
@@ -303,7 +318,7 @@ function canvasFont(weight: number, size: number, family: "sans" | "serif" = "sa
 
 async function loadCardFonts(data: CardData) {
   const sample = [
-    "사잇결 취향 기록 나의 한 장 나는 선호 모드 플레이 결 좋아하는 것 최애 주캐 교류 방식 좋아하는 교류 타 장르 이별은 잘 맞아요 안 맞아요",
+    "사잇결 취향 기록 나의 한 장 나의 취향 선호 모드 플레이 결 좋아하는 것 최애 주캐 교류 방식 좋아하는 교류 타 장르 이별은 잘 맞아요 안 맞아요 랭크 한마디",
     data.nickname,
     data.handle,
     data.genre,
@@ -631,7 +646,7 @@ function CardPreview({ data }: { data: CardData }) {
   const favoriteRows = getFavoriteRows(data);
   const preferredModes = getPreferredModes(data);
   const details = [
-    { label: "등급", value: data.rank.trim() },
+    { label: "랭크", value: data.rank.trim() },
     { label: "접속", value: data.times.join(" · ") },
     { label: "보이스", value: data.voice.trim() },
   ].filter((detail) => detail.value);
@@ -690,7 +705,7 @@ function CardPreview({ data }: { data: CardData }) {
           {hasPlayNotes && (
             <section className="play-notes">
               <div className="section-title-row">
-                <h3>나는</h3>
+                <h3>나의 취향</h3>
               </div>
               {details.length > 0 && (
                 <div className="micro-details">
@@ -967,7 +982,7 @@ async function renderCard(data: CardData) {
   const favoriteRows = getFavoriteRows(data);
   const preferredModes = getPreferredModes(data);
   const detailValues = [
-    ["등급", data.rank.trim()],
+    ["랭크", data.rank.trim()],
     ["접속", data.times.join(" · ")],
     ["보이스", data.voice.trim()],
   ].filter((detail): detail is [string, string] => Boolean(detail[1]));
@@ -1087,7 +1102,6 @@ async function renderCard(data: CardData) {
   ctx.save();
   ctx.translate(photoX + photoSize * 0.26, photoY - 16 * unit);
   ctx.rotate(0.13);
-  ctx.globalAlpha = 0.72;
   ctx.fillStyle = theme.tape;
   ctx.fillRect(0, 0, (isSparse ? 126 : 112) * unit, (isSparse ? 38 : 34) * unit);
   ctx.restore();
@@ -1203,7 +1217,7 @@ async function renderCard(data: CardData) {
     ctx.font = canvasFont(600, 24 * unit, "serif");
     ctx.fillText(title, x, y + 1 * unit);
   };
-  if (hasPlayNotes) sectionTitle(left, nextY, "나는");
+  if (hasPlayNotes) sectionTitle(left, nextY, "나의 취향");
 
   const detailY = nextY + 38 * unit;
   detailValues.forEach(([label, value], index) => {
@@ -1220,36 +1234,45 @@ async function renderCard(data: CardData) {
 
   const detailRows = detailValues.length ? Math.ceil(detailValues.length / 3) : 0;
   let preferenceY = detailY + detailRows * 52 * unit;
+  let hasDrawnPreference = false;
   const drawPreferenceGroup = (
     label: string,
     tags: string[],
     color: string,
   ) => {
     if (!tags.length) return;
+    if (hasDrawnPreference) preferenceY += 8 * unit;
+    const labelWidth = 104 * unit;
+    const pillHeight = 30 * unit;
+    const rowAdvance = 36 * unit;
+    const tagLeft = left + labelWidth;
+    const tagRight = left + playWidth;
+    let rowY = preferenceY;
+
     ctx.fillStyle = color;
     ctx.font = canvasFont(600, 18 * unit);
-    ctx.fillText(label, left, preferenceY + 25 * unit);
+    ctx.fillText(label, left, rowY + 21 * unit);
 
-    let tagX = left + 82 * unit;
-    ctx.font = canvasFont(600, 20 * unit);
-    let exhausted = false;
+    let tagX = tagLeft;
+    ctx.font = canvasFont(600, 18 * unit);
     tags.forEach((tag) => {
-      if (exhausted) return;
-      const available = left + playWidth - tagX;
-      if (available < 44 * unit) {
-        exhausted = true;
-        return;
+      const desiredWidth = ctx.measureText(tag).width + 24 * unit;
+      if (tagX > tagLeft && tagX + desiredWidth > tagRight) {
+        rowY += rowAdvance;
+        tagX = tagLeft;
       }
-      const tagWidth = Math.min(ctx.measureText(tag).width + 30 * unit, available);
-      roundedRect(ctx, tagX, preferenceY, tagWidth, 36 * unit, 18 * unit);
+      const available = tagRight - tagX;
+      const tagWidth = Math.min(desiredWidth, available);
+      roundedRect(ctx, tagX, rowY, tagWidth, pillHeight, pillHeight / 2);
       ctx.strokeStyle = color;
       ctx.lineWidth = 1.5 * unit;
       ctx.stroke();
       ctx.fillStyle = color;
-      drawEllipsizedText(ctx, tag, tagX + 15 * unit, preferenceY + 25 * unit, tagWidth - 22 * unit);
-      tagX += tagWidth + 8 * unit;
+      drawEllipsizedText(ctx, tag, tagX + 12 * unit, rowY + 21 * unit, tagWidth - 20 * unit);
+      tagX += tagWidth + 7 * unit;
     });
-    preferenceY += 36 * unit;
+    preferenceY = rowY + pillHeight;
+    hasDrawnPreference = true;
   };
   drawPreferenceGroup("선호 모드", preferredModes, theme.accent);
   drawPreferenceGroup("플레이 결", data.playStyles, theme.leaf);
@@ -1297,9 +1320,9 @@ async function renderCard(data: CardData) {
     ? Math.max(playBottomY, favoriteBottomY)
     : nextY;
   const connectionDividerY = hasPreferenceSections
-    ? preferenceBottomY + 10 * unit
+    ? preferenceBottomY + 18 * unit
     : nextY - 8 * unit;
-  const relationY = connectionDividerY + (portrait || square ? 58 : 62) * unit;
+  const relationY = connectionDividerY + 72 * unit;
 
   if (data.activities.length || socialNotes.length || hasRelationship) {
     ctx.strokeStyle = withAlpha(theme.ink, 0.28);
@@ -1308,9 +1331,9 @@ async function renderCard(data: CardData) {
     ctx.moveTo(left, connectionDividerY);
     ctx.lineTo(right, connectionDividerY);
     ctx.stroke();
-    sectionTitle(left, connectionDividerY + 29 * unit, "교류 방식");
+    sectionTitle(left, connectionDividerY + 36 * unit, "교류 방식");
 
-    const pillY = connectionDividerY + 7 * unit;
+    const pillY = connectionDividerY + 15 * unit;
     let summaryX = left + 150 * unit;
     const drawSummaryPill = (text: string, color: string, surface: string) => {
       const available = right - summaryX;
@@ -1318,21 +1341,21 @@ async function renderCard(data: CardData) {
       ctx.font = canvasFont(500, 14 * unit);
       const value = ellipsizeText(ctx, text, available - 20 * unit);
       const pillWidth = Math.min(available, ctx.measureText(value).width + 20 * unit);
-      roundedRect(ctx, summaryX, pillY, pillWidth, 27 * unit, 13.5 * unit);
+      roundedRect(ctx, summaryX, pillY, pillWidth, 28 * unit, 14 * unit);
       ctx.fillStyle = surface;
       ctx.fill();
       ctx.strokeStyle = withAlpha(color, 0.34);
       ctx.lineWidth = 1.25 * unit;
       ctx.stroke();
       ctx.fillStyle = color;
-      ctx.fillText(value, summaryX + 10 * unit, pillY + 19 * unit);
+      ctx.fillText(value, summaryX + 10 * unit, pillY + 20 * unit);
       summaryX += pillWidth + 8 * unit;
     };
 
     if (data.activities.length) {
       ctx.fillStyle = theme.accent;
       ctx.font = canvasFont(600, 15 * unit);
-      ctx.fillText("좋아하는 교류", summaryX, pillY + 19 * unit);
+      ctx.fillText("좋아하는 교류", summaryX, pillY + 20 * unit);
       summaryX += 102 * unit;
       data.activities.forEach((activity) => {
         drawSummaryPill(activity, theme.accent, theme.accentSoft);
@@ -1343,7 +1366,7 @@ async function renderCard(data: CardData) {
     });
   }
 
-  const relationHeight = portrait ? 190 * unit : square ? 152 * unit : 104 * unit;
+  const relationHeight = portrait ? 180 * unit : square ? 112 * unit : 94 * unit;
   const bothRelationships = Boolean(data.goodMatch.trim() && data.notMatch.trim());
   const relationWidth = bothRelationships
     ? (right - left - columnGap) / 2
@@ -1361,21 +1384,21 @@ async function renderCard(data: CardData) {
     ctx.strokeStyle = withAlpha(color, 0.48);
     ctx.lineWidth = 1.6 * unit;
     ctx.stroke();
-    roundedRect(ctx, x + 10 * unit, relationY + 14 * unit, 5 * unit, relationHeight - 28 * unit, 2.5 * unit);
+    roundedRect(ctx, x + 10 * unit, relationY + 12 * unit, 5 * unit, relationHeight - 24 * unit, 2.5 * unit);
     ctx.fillStyle = color;
     ctx.fill();
     ctx.fillStyle = color;
     ctx.font = canvasFont(600, 18 * unit);
-    ctx.fillText(label, x + 26 * unit, relationY + 35 * unit);
+    ctx.fillText(label, x + 26 * unit, relationY + (portrait ? 32 : 30) * unit);
     ctx.fillStyle = theme.ink;
-    ctx.font = canvasFont(500, 17 * unit);
+    ctx.font = canvasFont(500, (portrait ? 17 : 16) * unit);
     drawWrappedText(
       ctx,
       value,
       x + 26 * unit,
-      relationY + (square || portrait ? 70 : 56) * unit,
+      relationY + (portrait ? 62 : 50) * unit,
       relationWidth - 52 * unit,
-      (square ? 23 : portrait ? 26 : 19) * unit,
+      (portrait ? 23 : 17) * unit,
       portrait || square ? 4 : 3,
     );
   };
@@ -1538,16 +1561,17 @@ export default function Home() {
 
   const progress = `${((step + 1) / steps.length) * 100}%`;
   const theme = resolveCardPalette(data);
-  const previewInk = readableColor(theme.backdrop, theme.ink, theme.paper);
+  const previewInk = readablePreviewColor(theme.backdrop, theme.ink, theme.paper);
+  const previewButtonInk = readablePreviewColor(previewInk, theme.paper, theme.ink);
   const cardStyle = useMemo(
     () =>
       ({
         "--preview-backdrop": theme.backdrop,
         "--preview-ink": previewInk,
         "--preview-button-bg": previewInk,
-        "--preview-button-ink": readableColor(previewInk, theme.ink, theme.paper),
+        "--preview-button-ink": previewButtonInk,
       }) as CSSProperties,
-    [previewInk, theme.backdrop, theme.ink, theme.paper],
+    [previewButtonInk, previewInk, theme.backdrop],
   );
 
   const update = <K extends keyof CardData>(key: K, value: CardData[K]) => {
@@ -2016,7 +2040,7 @@ export default function Home() {
                       />
                     </Field>
                   </div>
-                  <Field label="티어 · 등급 · 레벨" hint="장르에 맞게 자유롭게 적어주세요">
+                  <Field label="랭크 · 티어 · 레벨" hint="장르에 맞게 자유롭게 적어주세요">
                     <input
                       value={data.rank}
                       maxLength={18}
@@ -2142,9 +2166,9 @@ export default function Home() {
                           <button
                             type="button"
                             key={key}
-                            className={cn("theme-choice", data.theme === key && !data.customTone && "is-active")}
-                            aria-pressed={data.theme === key && !data.customTone}
-                            onClick={() => setData((current) => ({ ...current, theme: key, customTone: "" }))}
+                            className={cn("theme-choice", data.theme === key && "is-active")}
+                            aria-pressed={data.theme === key}
+                            onClick={() => update("theme", key)}
                           >
                             <span
                               className="theme-swatches"
@@ -2165,17 +2189,17 @@ export default function Home() {
                     </div>
                   </Field>
 
-                  <Field label="직접 색 고르기" hint="가독성은 자동으로 맞춰져요">
+                  <Field label="카드 바깥 배경색" hint="완성 이미지의 바깥 배경만 바뀌어요">
                     <div className={cn("custom-color-picker", data.customTone && "is-active") }>
                       <label className="color-input-label">
                         <input
                           type="color"
-                          value={data.customTone || themes[data.theme].tone}
+                          value={data.customTone || themes[data.theme].backdrop}
                           onChange={(event) => update("customTone", event.target.value.toLowerCase())}
                         />
-                        <span>색상 직접 선택</span>
+                        <span>배경색 직접 선택</span>
                       </label>
-                      <div className="quick-colors" aria-label="추천 색상">
+                      <div className="quick-colors" aria-label="추천 배경색">
                         {CUSTOM_TONE_OPTIONS.map((color) => (
                           <button
                             type="button"
@@ -2189,7 +2213,7 @@ export default function Home() {
                         ))}
                       </div>
                       {data.customTone && (
-                        <button type="button" className="color-reset" onClick={() => update("customTone", "")}>기본 테마로</button>
+                        <button type="button" className="color-reset" onClick={() => update("customTone", "")}>기본 배경으로</button>
                       )}
                     </div>
                   </Field>
