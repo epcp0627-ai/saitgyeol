@@ -41,6 +41,7 @@ type CardData = {
   headsUp: string;
   memo: string;
   theme: ThemeKey;
+  customTone: string;
   ratio: RatioKey;
 };
 
@@ -63,6 +64,7 @@ type CardPalette = Theme & {
 };
 
 const STORAGE_KEY = "saitgyeol-card-v1";
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 const CARD_SANS_NAME = "Noto Sans KR Variable";
 const CARD_SERIF_NAME = "Noto Serif KR Variable";
 const CARD_SANS = `"${CARD_SANS_NAME}", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
@@ -119,19 +121,62 @@ function withAlpha(hex: string, alpha: number) {
   return `rgba(${red}, ${green}, ${blue}, ${Math.min(1, Math.max(0, alpha))})`;
 }
 
+function relativeLuminance(hex: string) {
+  const channels = [1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16) / 255);
+  const [red, green, blue] = channels.map((channel) =>
+    channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
+  );
+  return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+}
+
+function contrastRatio(first: string, second: string) {
+  const lighter = Math.max(relativeLuminance(first), relativeLuminance(second));
+  const darker = Math.min(relativeLuminance(first), relativeLuminance(second));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function ensureContrast(color: string, surfaces: string[], toward: string, minimum = 4.5) {
+  let adjusted = color;
+  for (let step = 0; step < 20; step += 1) {
+    if (surfaces.every((surface) => contrastRatio(adjusted, surface) >= minimum)) return adjusted;
+    adjusted = mixHex(adjusted, toward, 0.1);
+  }
+  return adjusted;
+}
+
 function resolveTheme(theme: Theme): CardPalette {
   const softenedTone = mixHex(theme.tone, theme.backdrop, 0.3);
-  const accent = mixHex(softenedTone, theme.ink, 0.46);
+  let accent = ensureContrast(mixHex(softenedTone, theme.ink, 0.46), [theme.paper], theme.ink);
+  let accentSoft = mixHex(theme.paper, accent, 0.085);
+  accent = ensureContrast(accent, [theme.paper, accentSoft], theme.ink);
+  accentSoft = mixHex(theme.paper, accent, 0.085);
   const leaf = mixHex(accent, theme.ink, 0.16);
   return {
     ...theme,
     accent,
     leaf,
     sun: mixHex(theme.paper, theme.backdrop, 0.62),
-    accentSoft: mixHex(theme.paper, accent, 0.085),
+    accentSoft,
     leafSoft: mixHex(theme.paper, leaf, 0.085),
     photoPaper: mixHex(theme.paper, theme.backdrop, 0.18),
   };
+}
+
+function resolveCardPalette(data: Pick<CardData, "theme" | "customTone">) {
+  if (!HEX_COLOR.test(data.customTone)) return resolveTheme(themes[data.theme]);
+  const tone = data.customTone.toLowerCase();
+  return resolveTheme({
+    name: "나만의 색",
+    note: "고른 색을 차분하게 맞춘 팔레트",
+    backdrop: mixHex("#e8e0d4", tone, 0.2),
+    paper: mixHex("#fffaf1", tone, 0.035),
+    ink: "#263746",
+    tone,
+  });
+}
+
+function readableColor(background: string, first: string, second: string) {
+  return contrastRatio(background, first) >= contrastRatio(background, second) ? first : second;
 }
 
 const defaultData: CardData = {
@@ -157,6 +202,7 @@ const defaultData: CardData = {
   headsUp: "답장이 느릴 수 있어요. 먼저 말 걸어주면 정말 기뻐요!",
   memo: "우리의 속도가 달라도 오래 좋아할 수 있으면 좋겠어요.",
   theme: "apricot",
+  customTone: "",
   ratio: "landscape",
 };
 
@@ -199,6 +245,7 @@ const MODE_OPTIONS = ["일반게임", "랭크게임", "코발트", "론울프"] 
 const PLAY_STYLE_OPTIONS = ["즐겜", "빡겜", "승리지향"] as const;
 const TIME_OPTIONS = ["오전", "오후", "밤", "새벽", "주말", "랜덤"] as const;
 const ACTIVITY_OPTIONS = ["게임", "마음", "멘션", "일상"] as const;
+const CUSTOM_TONE_OPTIONS = ["#b5695f", "#a87542", "#657a52", "#4f7977", "#5d6f9c", "#856985"] as const;
 
 const MODE_ALIASES: Record<string, string> = {
   일반: "일반게임",
@@ -331,6 +378,10 @@ function normalizeStoredData(value: Partial<CardData>) {
       typeof value.theme === "string" && Object.hasOwn(themes, value.theme)
         ? (value.theme as ThemeKey)
         : emptyData.theme,
+    customTone:
+      typeof value.customTone === "string" && HEX_COLOR.test(value.customTone)
+        ? value.customTone.toLowerCase()
+        : "",
     ratio:
       value.ratio === "landscape" || value.ratio === "portrait" || value.ratio === "square"
         ? value.ratio
@@ -472,12 +523,10 @@ function Field({
 
 function StepButton({
   active,
-  number,
   label,
   onClick,
 }: {
   active: boolean;
-  number: string;
   label: string;
   onClick: () => void;
 }) {
@@ -488,7 +537,6 @@ function StepButton({
       aria-current={active ? "step" : undefined}
       onClick={onClick}
     >
-      <span>{number}</span>
       {label}
     </button>
   );
@@ -534,7 +582,7 @@ function getSocialNotes(data: CardData) {
 }
 
 function CardPreview({ data }: { data: CardData }) {
-  const theme = resolveTheme(themes[data.theme]);
+  const theme = resolveCardPalette(data);
   const isSparse = !hasStructuredBody(data);
   const favorites = splitFavorites(data.favorites);
   const details = [
@@ -633,14 +681,11 @@ function CardPreview({ data }: { data: CardData }) {
               <div className="section-title-row">
                 <h3>요즘 마음이 가는 것</h3>
               </div>
-              <ol>
+              <ul>
                 {favorites.map((favorite, index) => (
-                <li key={`${favorite}-${index}`}>
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                  <strong>{favorite}</strong>
-                </li>
+                <li key={`${favorite}-${index}`}>{favorite}</li>
                 ))}
-              </ol>
+              </ul>
             </section>
           )}
         </div>
@@ -711,24 +756,37 @@ function wrapLines(
 ) {
   const source = text.trim().normalize("NFC");
   if (!source) return [];
-  const graphemes = splitGraphemes(source);
   const lines: string[] = [];
-  let current = "";
   let truncated = false;
-  for (const char of graphemes) {
-    const next = current + char;
-    if (ctx.measureText(next).width > maxWidth && current) {
-      lines.push(current.trim());
-      if (lines.length === maxLines) {
-        truncated = true;
-        break;
+  const paragraphs = source.split(/\r?\n/u);
+  for (let paragraphIndex = 0; paragraphIndex < paragraphs.length; paragraphIndex += 1) {
+    const paragraph = paragraphs[paragraphIndex];
+    if (!paragraph) {
+      if (lines.length < maxLines) lines.push("");
+      else truncated = true;
+      continue;
+    }
+    let current = "";
+    for (const char of splitGraphemes(paragraph)) {
+      const next = current + char;
+      if (ctx.measureText(next).width > maxWidth && current) {
+        lines.push(current.trimEnd());
+        if (lines.length === maxLines) {
+          truncated = true;
+          break;
+        }
+        current = char;
+      } else {
+        current = next;
       }
-      current = char;
-    } else {
-      current = next;
+    }
+    if (truncated) break;
+    if (current && lines.length < maxLines) lines.push(current.trimEnd());
+    if (lines.length === maxLines && paragraphIndex < paragraphs.length - 1) {
+      truncated = true;
+      break;
     }
   }
-  if (!truncated && lines.length < maxLines && current.trim()) lines.push(current.trim());
   if (truncated && lines.length) {
     const last = lines.length - 1;
     lines[last] = ellipsizeText(ctx, `${lines[last]}…`, maxWidth);
@@ -828,7 +886,7 @@ async function renderCard(data: CardData) {
     square: [1200, 1200],
   };
   const [width, height] = dimensions[data.ratio];
-  const theme = resolveTheme(themes[data.theme]);
+  const theme = resolveCardPalette(data);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -1063,7 +1121,7 @@ async function renderCard(data: CardData) {
     ctx.lineTo(right, nextY);
     ctx.stroke();
     ctx.globalAlpha = 1;
-    nextY += (data.intro.trim() ? 26 : 22) * unit;
+    nextY += (data.intro.trim() ? 38 : 34) * unit;
   }
 
   const columnGap = 38 * unit;
@@ -1075,26 +1133,34 @@ async function renderCard(data: CardData) {
   let favoriteTitleY = nextY;
   const sectionTitle = (x: number, y: number, title: string) => {
     ctx.fillStyle = theme.ink;
-    ctx.font = canvasFont(700, 24 * unit, "serif");
+    ctx.font = canvasFont(600, 24 * unit, "serif");
     ctx.fillText(title, x, y + 1 * unit);
   };
   if (hasPlayNotes) sectionTitle(left, nextY, "나의 취향 결");
+  if (splitInfo) {
+    ctx.strokeStyle = withAlpha(theme.ink, 0.2);
+    ctx.lineWidth = 1 * unit;
+    ctx.beginPath();
+    ctx.moveTo(favoriteX - columnGap / 2, nextY - 4 * unit);
+    ctx.lineTo(favoriteX - columnGap / 2, nextY + 146 * unit);
+    ctx.stroke();
+  }
 
-  const detailY = nextY + 42 * unit;
+  const detailY = nextY + 38 * unit;
   detailValues.forEach(([label, value], index) => {
     const x = left + (index % 3) * (playWidth / 3);
     const y = detailY + Math.floor(index / 3) * 55 * unit;
     ctx.fillStyle = theme.ink;
     ctx.globalAlpha = 0.55;
-    ctx.font = canvasFont(600, 18 * unit);
+    ctx.font = canvasFont(500, 18 * unit);
     ctx.fillText(label, x, y);
     ctx.globalAlpha = 1;
-    ctx.font = canvasFont(700, 23 * unit);
+    ctx.font = canvasFont(600, 23 * unit);
     drawEllipsizedText(ctx, value, x, y + 28 * unit, playWidth / 3 - 8 * unit);
   });
 
   const detailRows = detailValues.length ? Math.ceil(detailValues.length / 3) : 0;
-  let preferenceY = detailY + detailRows * 58 * unit;
+  let preferenceY = detailY + detailRows * 54 * unit;
   const drawPreferenceGroup = (
     label: string,
     tags: string[],
@@ -1102,11 +1168,11 @@ async function renderCard(data: CardData) {
   ) => {
     if (!tags.length) return;
     ctx.fillStyle = color;
-    ctx.font = canvasFont(700, 18 * unit);
+    ctx.font = canvasFont(600, 18 * unit);
     ctx.fillText(label, left, preferenceY + 25 * unit);
 
     let tagX = left + 82 * unit;
-    ctx.font = canvasFont(700, 20 * unit);
+    ctx.font = canvasFont(600, 20 * unit);
     tags.forEach((tag) => {
       const tagWidth = Math.min(ctx.measureText(tag).width + 30 * unit, playWidth - 82 * unit);
       if (tagX + tagWidth > left + playWidth) {
@@ -1121,7 +1187,7 @@ async function renderCard(data: CardData) {
       drawEllipsizedText(ctx, tag, tagX + 15 * unit, preferenceY + 25 * unit, tagWidth - 22 * unit);
       tagX += tagWidth + 8 * unit;
     });
-    preferenceY += 42 * unit;
+    preferenceY += 38 * unit;
   };
   drawPreferenceGroup("선호 모드", data.modes, theme.accent);
   drawPreferenceGroup("플레이 결", data.playStyles, theme.leaf);
@@ -1129,23 +1195,28 @@ async function renderCard(data: CardData) {
   favoriteTitleY = stackInfo
     ? Math.max(nextY + 184 * unit, playBottomY + 24 * unit)
     : nextY;
+  if (stackInfo && favorites.length) {
+    ctx.strokeStyle = withAlpha(theme.ink, 0.2);
+    ctx.lineWidth = 1 * unit;
+    ctx.beginPath();
+    ctx.moveTo(left, favoriteTitleY - 18 * unit);
+    ctx.lineTo(right, favoriteTitleY - 18 * unit);
+    ctx.stroke();
+  }
   if (favorites.length) {
     sectionTitle(favoriteX, favoriteTitleY, "요즘 마음이 가는 것");
   }
 
   favorites.forEach((favorite, index) => {
     const x = favoriteX;
-    const y = favoriteTitleY + 70 * unit + index * 40 * unit;
-    ctx.fillStyle = index === 0 ? theme.accent : theme.leaf;
-    ctx.font = canvasFont(700, 16 * unit);
-    ctx.fillText(String(index + 1).padStart(2, "0"), x, y);
+    const y = favoriteTitleY + 52 * unit + index * 36 * unit;
     ctx.fillStyle = theme.ink;
-    ctx.font = canvasFont(700, 23 * unit);
-    drawEllipsizedText(ctx, favorite, x + 42 * unit, y, sectionWidth - 46 * unit);
+    ctx.font = canvasFont(600, 22 * unit);
+    drawEllipsizedText(ctx, favorite, x, y, sectionWidth - 6 * unit);
   });
 
   const favoriteBottomY = favorites.length
-    ? favoriteTitleY + 89 * unit + (favorites.length - 1) * 40 * unit
+    ? favoriteTitleY + 66 * unit + (favorites.length - 1) * 36 * unit
     : nextY;
   let relationY = (hasPlayNotes || favorites.length)
     ? Math.max(playBottomY, favoriteBottomY) + 14 * unit
@@ -1155,7 +1226,7 @@ async function renderCard(data: CardData) {
     socialNotes.forEach((note) => {
       const available = right - socialX;
       if (available <= 40 * unit) return;
-      ctx.font = canvasFont(note.isAccent ? 700 : 600, 14 * unit);
+      ctx.font = canvasFont(note.isAccent ? 600 : 500, 14 * unit);
       const text = ellipsizeText(ctx, `${note.label} ${note.value}`, available - 20 * unit);
       const pillWidth = Math.min(available, ctx.measureText(text).width + 20 * unit);
       roundedRect(ctx, socialX, relationY, pillWidth, 27 * unit, 13.5 * unit);
@@ -1170,9 +1241,9 @@ async function renderCard(data: CardData) {
       ctx.globalAlpha = 1;
       socialX += pillWidth + 8 * unit;
     });
-    relationY += 30 * unit;
+    relationY += 42 * unit;
   }
-  const relationHeight = portrait ? 190 * unit : square ? 152 * unit : 128 * unit;
+  const relationHeight = portrait ? 190 * unit : square ? 152 * unit : 122 * unit;
   const bothRelationships = Boolean(data.goodMatch.trim() && data.headsUp.trim());
   const relationWidth = bothRelationships
     ? (right - left - columnGap) / 2
@@ -1194,17 +1265,17 @@ async function renderCard(data: CardData) {
     ctx.fillStyle = color;
     ctx.fill();
     ctx.fillStyle = color;
-    ctx.font = canvasFont(800, 18 * unit);
+    ctx.font = canvasFont(600, 18 * unit);
     ctx.fillText(label, x + 26 * unit, relationY + 35 * unit);
     ctx.fillStyle = theme.ink;
-    ctx.font = canvasFont(600, 17 * unit);
+    ctx.font = canvasFont(500, 17 * unit);
     drawWrappedText(
       ctx,
       value,
       x + 26 * unit,
-      relationY + 70 * unit,
+      relationY + (square || portrait ? 70 : 66) * unit,
       relationWidth - 52 * unit,
-      (square ? 23 : 26) * unit,
+      (square ? 23 : portrait ? 26 : 24) * unit,
       portrait || square ? 4 : 3,
     );
   };
@@ -1225,8 +1296,8 @@ async function renderCard(data: CardData) {
   ctx.strokeStyle = theme.ink;
   ctx.globalAlpha = 0.28;
   ctx.beginPath();
-  ctx.moveTo(left, footerY - 38 * unit);
-  ctx.lineTo(right, footerY - 38 * unit);
+  ctx.moveTo(left, footerY - 32 * unit);
+  ctx.lineTo(right, footerY - 32 * unit);
   ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.fillStyle = theme.ink;
@@ -1303,6 +1374,7 @@ export default function Home() {
   const [saveState, setSaveState] = useState("새 카드가 준비됐어요");
   const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState("");
+  const [isAndroidKakao, setIsAndroidKakao] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const photoDrag = useRef<{
     pointerId: number;
@@ -1337,6 +1409,15 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setIsAndroidKakao(
+        /Android/i.test(navigator.userAgent) && /KAKAOTALK/i.test(navigator.userAgent),
+      );
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
     if (!hydrated) return;
     const timer = window.setTimeout(() => {
       try {
@@ -1356,16 +1437,17 @@ export default function Home() {
   }, [toast]);
 
   const progress = `${((step + 1) / steps.length) * 100}%`;
-  const theme = resolveTheme(themes[data.theme]);
+  const theme = resolveCardPalette(data);
+  const previewInk = readableColor(theme.backdrop, theme.ink, theme.paper);
   const cardStyle = useMemo(
     () =>
       ({
         "--preview-backdrop": theme.backdrop,
-        "--preview-ink": data.theme === "night" ? theme.paper : theme.ink,
-        "--preview-button-bg": data.theme === "night" ? theme.paper : theme.ink,
-        "--preview-button-ink": data.theme === "night" ? theme.ink : theme.paper,
+        "--preview-ink": previewInk,
+        "--preview-button-bg": previewInk,
+        "--preview-button-ink": readableColor(previewInk, theme.ink, theme.paper),
       }) as CSSProperties,
-    [data.theme, theme.backdrop, theme.ink, theme.paper],
+    [previewInk, theme.backdrop, theme.ink, theme.paper],
   );
 
   const update = <K extends keyof CardData>(key: K, value: CardData[K]) => {
@@ -1475,6 +1557,31 @@ export default function Home() {
     }
   };
 
+  const downloadFilename = () => {
+    const safeNickname = clampText(data.nickname, "card")
+      .normalize("NFC")
+      .replace(/[\\/:*?"<>|%]/g, "")
+      .replace(/[\s.]+$/g, "")
+      .slice(0, 32) || "card";
+    const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+    return `saitgyeol_${safeNickname}_${date}.png`;
+  };
+
+  const triggerBlobDownload = (blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = downloadFilename();
+    link.rel = "noopener";
+    link.style.display = "none";
+    document.body.append(link);
+    link.click();
+    window.setTimeout(() => {
+      link.remove();
+      URL.revokeObjectURL(url);
+    }, 30_000);
+  };
+
   const downloadCard = async () => {
     if (!data.nickname.trim()) {
       setStep(0);
@@ -1482,23 +1589,14 @@ export default function Home() {
       document.querySelector("#maker")?.scrollIntoView({ behavior: "smooth" });
       return;
     }
+    if (isAndroidKakao) {
+      setToast("카카오톡의 ⋮ 메뉴에서 ‘다른 브라우저로 열기’ 후 저장해 주세요.");
+      return;
+    }
     try {
       const blob = await createBlob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      const date = new Intl.DateTimeFormat("ko-KR", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      })
-        .format(new Date())
-        .replaceAll(". ", "")
-        .replace(".", "");
-      link.href = url;
-      link.download = `사잇결_${clampText(data.nickname, "트친소")}_${date}.png`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setToast("PNG로 예쁘게 접어 드렸어요.");
+      triggerBlobDownload(blob);
+      setToast("PNG 다운로드를 시작했어요.");
     } catch {
       setToast("PNG 저장에 실패했어요. 잠시 뒤 다시 시도해 주세요.");
     }
@@ -1522,6 +1620,10 @@ export default function Home() {
       document.querySelector("#maker")?.scrollIntoView({ behavior: "smooth" });
       return;
     }
+    if (isAndroidKakao) {
+      setToast("카카오톡의 ⋮ 메뉴에서 ‘다른 브라우저로 열기’를 이용해 주세요.");
+      return;
+    }
     try {
       const blob = await createBlob();
       const file = new File([blob], "saitgyeol-card.png", { type: "image/png" });
@@ -1535,12 +1637,7 @@ export default function Home() {
         return;
       }
       await navigator.clipboard.writeText(postCopy);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `사잇결_${clampText(data.nickname, "트친소")}.png`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      triggerBlobDownload(blob);
       setToast("PNG를 저장하고 게시글 문구를 복사했어요.");
     } catch (error) {
       if ((error as DOMException).name !== "AbortError") {
@@ -1588,9 +1685,14 @@ export default function Home() {
       </header>
 
       <main id="top">
+        {isAndroidKakao && (
+          <div className="kakao-browser-notice" role="alert">
+            <strong>카카오톡 안에서는 PNG 저장이 제한돼요.</strong>
+            <span>오른쪽 위 ⋮ 메뉴에서 ‘다른 브라우저로 열기’를 선택해 주세요.</span>
+          </div>
+        )}
         <section className="intro-band" aria-labelledby="main-title">
           <div className="intro-copy">
-            <span className="eyebrow">트친소 카드 메이커</span>
             <h1 id="main-title">
               취향의 결을 모아,
               <br />
@@ -1603,24 +1705,13 @@ export default function Home() {
               <br />
               가입 없이, 천천히 써도 괜찮아요.
             </p>
-            <div className="intro-tags" aria-label="주요 기능">
-              <span>4단계로 가볍게</span>
-              <span>실시간 미리보기</span>
-              <span>PNG로 간직하기</span>
-            </div>
           </div>
-          <span className="intro-stamp" aria-hidden="true">
-            취향
-            <br />
-            사이
-          </span>
         </section>
 
         <section className="maker" id="maker" aria-label="트친소 카드 제작기">
           <div className="editor-panel">
             <div className="editor-heading">
               <div>
-                <span className="panel-kicker">지금 쓰는 장</span>
                 <h2>{steps[step].title}</h2>
               </div>
               <button className="text-button" type="button" onClick={fillExample}>
@@ -1633,7 +1724,6 @@ export default function Home() {
                 <StepButton
                   key={item.short}
                   active={step === index}
-                  number={String(index + 1).padStart(2, "0")}
                   label={item.short}
                   onClick={() => setStep(index)}
                 />
@@ -1644,6 +1734,7 @@ export default function Home() {
             <div className="step-body">
               {step === 0 && (
                 <div className="form-stack">
+                  <h3 className="form-group-title">기본 정보</h3>
                   <div className="photo-upload-row">
                     <button
                       type="button"
@@ -1783,6 +1874,7 @@ export default function Home() {
                       onChange={(event) => update("genre", event.target.value)}
                     />
                   </Field>
+                  <div className="form-section-divider"><span>한마디 소개</span></div>
                   <Field label="마음을 담은 한 문장" hint={`${data.phrase.length}/42`}>
                     <input
                       value={data.phrase}
@@ -1805,6 +1897,7 @@ export default function Home() {
 
               {step === 1 && (
                 <div className="form-stack">
+                  <h3 className="form-group-title">플레이 취향</h3>
                   <Field label="최애 · 주캐" hint="쉼표로 나눠 최대 3개">
                     <input
                       value={data.favorites}
@@ -1835,6 +1928,7 @@ export default function Home() {
                       onChange={(next) => update("playStyles", next)}
                     />
                   </Field>
+                  <div className="form-section-divider"><span>접속 환경</span></div>
                   <Field label="주로 만나는 시간">
                     <ChoiceChips
                       options={TIME_OPTIONS}
@@ -1855,6 +1949,7 @@ export default function Home() {
 
               {step === 2 && (
                 <div className="form-stack">
+                  <h3 className="form-group-title">교류 방식</h3>
                   <Field label="좋아하는 교류">
                     <ChoiceChips
                       options={ACTIVITY_OPTIONS}
@@ -1887,6 +1982,7 @@ export default function Home() {
                       </select>
                     </Field>
                   </div>
+                  <div className="form-section-divider"><span>서로 알아둘 것</span></div>
                   <Field label="잘 맞아요" hint={`${data.goodMatch.length}/92`}>
                     <textarea
                       rows={3}
@@ -1913,14 +2009,6 @@ export default function Home() {
                       onChange={(event) => update("memo", event.target.value)}
                     />
                   </Field>
-                  <div className="soft-summary">
-                    <span>카드에 작게 덧붙여져요</span>
-                    <p>
-                      {data.activities.join(" · ") || "좋아하는 교류"}
-                      {data.otherGenre && ` / 타 장르 ${data.otherGenre}`}
-                      {data.breakup && ` / 이별은 ${data.breakup}`}
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -1935,9 +2023,9 @@ export default function Home() {
                           <button
                             type="button"
                             key={key}
-                            className={cn("theme-choice", data.theme === key && "is-active")}
-                            aria-pressed={data.theme === key}
-                            onClick={() => update("theme", key)}
+                            className={cn("theme-choice", data.theme === key && !data.customTone && "is-active")}
+                            aria-pressed={data.theme === key && !data.customTone}
+                            onClick={() => setData((current) => ({ ...current, theme: key, customTone: "" }))}
                           >
                             <span
                               className="theme-swatches"
@@ -1952,10 +2040,38 @@ export default function Home() {
                               <i style={{ background: palette.sun }} />
                             </span>
                             <strong>{item.name}</strong>
-                            <small>{item.note}</small>
                           </button>
                         );
                       })}
+                    </div>
+                  </Field>
+
+                  <Field label="직접 색 고르기" hint="가독성은 자동으로 맞춰져요">
+                    <div className={cn("custom-color-picker", data.customTone && "is-active") }>
+                      <label className="color-input-label">
+                        <input
+                          type="color"
+                          value={data.customTone || themes[data.theme].tone}
+                          onChange={(event) => update("customTone", event.target.value.toLowerCase())}
+                        />
+                        <span>색상 직접 선택</span>
+                      </label>
+                      <div className="quick-colors" aria-label="추천 색상">
+                        {CUSTOM_TONE_OPTIONS.map((color) => (
+                          <button
+                            type="button"
+                            key={color}
+                            className={data.customTone === color ? "is-active" : undefined}
+                            aria-label={`${color} 색상`}
+                            aria-pressed={data.customTone === color}
+                            style={{ background: color }}
+                            onClick={() => update("customTone", color)}
+                          />
+                        ))}
+                      </div>
+                      {data.customTone && (
+                        <button type="button" className="color-reset" onClick={() => update("customTone", "")}>기본 테마로</button>
+                      )}
                     </div>
                   </Field>
 
@@ -1979,13 +2095,6 @@ export default function Home() {
                     </div>
                   </Field>
 
-                  <div className="completion-note">
-                    <span className="completion-mark" aria-hidden="true">✓</span>
-                    <div>
-                      <strong>한 장에 잘 담겼어요.</strong>
-                      <p>오른쪽 미리보기를 확인하고, 마음 맞는 사람에게 건네보세요.</p>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
@@ -2016,7 +2125,6 @@ export default function Home() {
           <aside id="preview-mobile" className="preview-panel" style={cardStyle} aria-label="카드 미리보기와 저장">
             <div className="preview-heading">
               <div>
-                <span className="panel-kicker">완성될 한 장</span>
                 <h2>내 결 카드</h2>
               </div>
               <span>{ratioLabels[data.ratio].note}</span>

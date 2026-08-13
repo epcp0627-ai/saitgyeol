@@ -61,6 +61,11 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.match(page, /function normalizeStoredData/);
   assert.match(page, /function hasStructuredBody/);
   assert.match(page, /function resolveTheme/);
+  assert.match(page, /function resolveCardPalette/);
+  assert.match(page, /customTone/);
+  assert.match(page, /KAKAOTALK/);
+  assert.match(page, /다른 브라우저로 열기/);
+  assert.match(page, /source\.split\(\/\\r\?\\n\/u\)/);
   assert.match(page, /function firstGrapheme/);
   assert.match(page, /async function loadCardFonts/);
   assert.match(page, /function getSocialNotes/);
@@ -85,6 +90,9 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.match(css, /\.social-note\.is-accent/);
   assert.match(css, /\.friend-card\.is-sparse/);
   assert.match(css, /\.identity-name-row/);
+  assert.match(css, /\.custom-color-picker/);
+  assert.match(css, /\.kakao-browser-notice/);
+  assert.match(css, /white-space: pre-line/);
   assert.match(css, /box-shadow: inset 0\.32cqw 0 0 var\(--accent\)/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
   assert.match(packageJson, /"name": "saitgyeol-friend-card-maker"/);
