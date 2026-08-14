@@ -77,6 +77,61 @@ const CARD_SANS_NAME = "Noto Sans KR Variable";
 const CARD_SERIF_NAME = "Noto Serif KR Variable";
 const CARD_SANS = `"${CARD_SANS_NAME}", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
 const CARD_SERIF = `"${CARD_SERIF_NAME}", "AppleMyungjo", Batang, serif`;
+const ANALYTICS_VISITOR_KEY = "saitgyeol-anonymous-visitor";
+const ANALYTICS_SESSION_KEY = "saitgyeol-visit-started-at";
+const ANALYTICS_REMOTE_ENDPOINT = "https://saitgyeol-friend-card.epcp0627.chatgpt.site/api/analytics";
+
+type AnalyticsEvent = "page_view" | "card_complete" | "png_download" | "share" | "copy_text";
+
+type AnalyticsReport = {
+  summary: {
+    visits: number;
+    cardCompletions: number;
+    pngDownloads: number;
+    shares: number;
+    copies: number;
+    todayVisitors: number;
+    recentVisitors: number;
+    mobilePercent: number;
+  };
+  daily: Array<{
+    date: string;
+    visits: number;
+    cardCompletions: number;
+    pngDownloads: number;
+  }>;
+  trackingSince: string;
+};
+
+function analyticsEndpoint() {
+  if (typeof window === "undefined") return "/api/analytics";
+  return window.location.hostname === "epcp0627-ai.github.io"
+    ? ANALYTICS_REMOTE_ENDPOINT
+    : "/api/analytics";
+}
+
+function analyticsVisitorId() {
+  try {
+    const saved = window.localStorage.getItem(ANALYTICS_VISITOR_KEY);
+    if (saved) return saved;
+    const id = crypto.randomUUID();
+    window.localStorage.setItem(ANALYTICS_VISITOR_KEY, id);
+    return id;
+  } catch {
+    return `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  }
+}
+
+function trackAnalytics(event: AnalyticsEvent) {
+  if (typeof window === "undefined" || navigator.doNotTrack === "1") return;
+  const device = window.matchMedia("(max-width: 720px)").matches ? "mobile" : "desktop";
+  void fetch(analyticsEndpoint(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event, device, visitorId: analyticsVisitorId() }),
+    keepalive: true,
+  }).catch(() => undefined);
+}
 
 const themes: Record<ThemeKey, Theme> = {
   apricot: {
@@ -1499,6 +1554,132 @@ function RenderedCardPreview({ data }: { data: CardData }) {
   );
 }
 
+function AnalyticsDashboard() {
+  const [report, setReport] = useState<AnalyticsReport | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(analyticsEndpoint(), { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("analytics unavailable");
+        setReport((await response.json()) as AnalyticsReport);
+      })
+      .catch((error: unknown) => {
+        if ((error as DOMException).name !== "AbortError") setFailed(true);
+      });
+    return () => controller.abort();
+  }, []);
+
+  const number = new Intl.NumberFormat("ko-KR");
+  const formatDate = (value: string) =>
+    new Intl.DateTimeFormat("ko-KR", { month: "short", day: "numeric" }).format(
+      new Date(`${value}T00:00:00+09:00`),
+    );
+  const maxDailyVisits = Math.max(1, ...(report?.daily.map((row) => row.visits) ?? [1]));
+  const metricCards = report
+    ? [
+        ["오늘 방문자", report.summary.todayVisitors, "오늘 방문한 익명 기기"],
+        ["전체 방문", report.summary.visits, "통계 설치 이후 방문"],
+        ["카드 완성", report.summary.cardCompletions, "마지막 단계까지 작성"],
+        ["PNG 저장", report.summary.pngDownloads, "다운로드를 시작한 횟수"],
+        ["공유", report.summary.shares, "공유 기능을 완료한 횟수"],
+        ["문구 복사", report.summary.copies, "게시글 문구를 복사한 횟수"],
+      ] as const
+    : [];
+
+  return (
+    <div className="site-page analytics-page">
+      <header className="site-header">
+        <a className="wordmark" href="#top" aria-label="카드 만들기로 돌아가기">
+          <span className="wordmark-seal">결</span>
+          <span>
+            <strong>사잇결</strong>
+            <small>익명 이용 현황</small>
+          </span>
+        </a>
+        <a className="header-link" href="#top">카드 만들기</a>
+      </header>
+
+      <main className="analytics-dashboard">
+        <div className="analytics-title">
+          <span>ANONYMOUS STATS</span>
+          <h1>사잇결 이용 현황</h1>
+          <p>닉네임, 입력한 문장, 프로필 사진은 수집하지 않아요. 익명 방문과 버튼 사용 횟수만 확인합니다.</p>
+        </div>
+
+        {!report && !failed && <div className="analytics-status">이용 현황을 불러오는 중이에요…</div>}
+        {failed && (
+          <div className="analytics-status is-error">
+            <strong>아직 통계를 불러오지 못했어요.</strong>
+            <span>잠시 뒤 페이지를 새로고침해 주세요.</span>
+          </div>
+        )}
+
+        {report && (
+          <>
+            <section className="analytics-metrics" aria-label="주요 이용 지표">
+              {metricCards.map(([label, value, note]) => (
+                <article key={label}>
+                  <span>{label}</span>
+                  <strong>{number.format(value)}</strong>
+                  <small>{note}</small>
+                </article>
+              ))}
+            </section>
+
+            <section className="analytics-detail-grid">
+              <article className="analytics-trend">
+                <div className="analytics-section-heading">
+                  <div>
+                    <span>최근 14일</span>
+                    <h2>방문 흐름</h2>
+                  </div>
+                  <small>막대는 날짜별 방문 횟수예요</small>
+                </div>
+                <div className="analytics-bars" aria-label="최근 14일 방문 횟수">
+                  {report.daily.map((row) => (
+                    <div className="analytics-bar-row" key={row.date}>
+                      <time dateTime={row.date}>{formatDate(row.date)}</time>
+                      <div className="analytics-bar-track">
+                        <i style={{ width: `${Math.max(2, (row.visits / maxDailyVisits) * 100)}%` }} />
+                      </div>
+                      <strong>{number.format(row.visits)}</strong>
+                    </div>
+                  ))}
+                </div>
+              </article>
+
+              <aside className="analytics-audience">
+                <span>최근 30일</span>
+                <h2>방문 환경</h2>
+                <div className="analytics-mobile-share">
+                  <strong>{report.summary.mobilePercent}%</strong>
+                  <span>모바일 방문</span>
+                </div>
+                <div className="analytics-progress" aria-label={`모바일 방문 ${report.summary.mobilePercent}%`}>
+                  <i style={{ width: `${report.summary.mobilePercent}%` }} />
+                </div>
+                <dl>
+                  <div>
+                    <dt>익명 방문자 합계</dt>
+                    <dd>{number.format(report.summary.recentVisitors)}</dd>
+                  </div>
+                  <div>
+                    <dt>집계 시작</dt>
+                    <dd>{report.trackingSince.replaceAll("-", ".")}</dd>
+                  </div>
+                </dl>
+                <p>같은 기기도 날짜가 바뀌면 새 방문자로 계산될 수 있어요.</p>
+              </aside>
+            </section>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
+
 export default function Home() {
   const [data, setData] = useState<CardData>(emptyData);
   const [step, setStep] = useState(0);
@@ -1507,7 +1688,9 @@ export default function Home() {
   const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState("");
   const [isAndroidKakao, setIsAndroidKakao] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const completionTracked = useRef(false);
   const photoDrag = useRef<{
     pointerId: number;
     clientX: number;
@@ -1517,6 +1700,25 @@ export default function Home() {
     overflowX: number;
     overflowY: number;
   } | null>(null);
+
+  useEffect(() => {
+    const syncRoute = () => setShowStats(window.location.hash === "#stats");
+    syncRoute();
+    window.addEventListener("hashchange", syncRoute);
+    return () => window.removeEventListener("hashchange", syncRoute);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const lastVisit = Number(window.sessionStorage.getItem(ANALYTICS_SESSION_KEY));
+      if (!lastVisit || Date.now() - lastVisit > 30 * 60 * 1000) {
+        trackAnalytics("page_view");
+        window.sessionStorage.setItem(ANALYTICS_SESSION_KEY, String(Date.now()));
+      }
+    } catch {
+      trackAnalytics("page_view");
+    }
+  }, []);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -1568,6 +1770,12 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  useEffect(() => {
+    if (step !== steps.length - 1 || !hasPersonalContent(data) || completionTracked.current) return;
+    completionTracked.current = true;
+    trackAnalytics("card_complete");
+  }, [data, step]);
+
   const progress = `${((step + 1) / steps.length) * 100}%`;
   const theme = resolveCardPalette(data);
   const previewInk = readablePreviewColor(theme.backdrop, theme.ink, theme.paper);
@@ -1582,6 +1790,8 @@ export default function Home() {
       }) as CSSProperties,
     [previewButtonInk, previewInk, theme.backdrop],
   );
+
+  if (showStats) return <AnalyticsDashboard />;
 
   const update = <K extends keyof CardData>(key: K, value: CardData[K]) => {
     setData((current) => ({ ...current, [key]: value }));
@@ -1729,6 +1939,7 @@ export default function Home() {
     try {
       const blob = await createBlob();
       triggerBlobDownload(blob);
+      trackAnalytics("png_download");
       setToast("PNG 다운로드를 시작했어요.");
     } catch {
       setToast("PNG 저장에 실패했어요. 잠시 뒤 다시 시도해 주세요.");
@@ -1740,6 +1951,7 @@ export default function Home() {
   const copyPost = async () => {
     try {
       await navigator.clipboard.writeText(postCopy);
+      trackAnalytics("copy_text");
       setToast("게시글 문구를 복사했어요.");
     } catch {
       setToast("복사하지 못했어요. 브라우저 권한을 확인해 주세요.");
@@ -1766,11 +1978,15 @@ export default function Home() {
           text: postCopy,
           files: [file],
         });
+        trackAnalytics("share");
         setToast("카드를 건넸어요.");
         return;
       }
       await navigator.clipboard.writeText(postCopy);
       triggerBlobDownload(blob);
+      trackAnalytics("share");
+      trackAnalytics("png_download");
+      trackAnalytics("copy_text");
       setToast("PNG를 저장하고 게시글 문구를 복사했어요.");
     } catch (error) {
       if ((error as DOMException).name !== "AbortError") {
@@ -1783,6 +1999,7 @@ export default function Home() {
     if (!window.confirm("지금까지 쓴 내용을 모두 비울까요?")) return;
     setData(emptyData);
     setStep(0);
+    completionTracked.current = false;
     window.localStorage.removeItem(STORAGE_KEY);
     setToast("새 종이를 펼쳤어요.");
   };
@@ -2311,6 +2528,11 @@ export default function Home() {
           </p>
           <i aria-hidden="true">↗</i>
         </section>
+
+        <footer className="site-utility-footer">
+          <span>작성한 문장과 사진은 수집하지 않아요.</span>
+          <a href="#stats">익명 이용 현황 보기</a>
+        </footer>
       </main>
 
       <div className="mobile-action-bar">

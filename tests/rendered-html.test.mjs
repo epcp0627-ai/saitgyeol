@@ -38,7 +38,7 @@ test("server-renders the branded card maker", async () => {
 });
 
 test("ships the finished editor without starter artifacts", async () => {
-  const [page, layout, css, packageJson, pagesWorkflow, pagesEntry, pagesConfig] = await Promise.all([
+  const [page, layout, css, packageJson, pagesWorkflow, pagesEntry, pagesConfig, analyticsRoute, schema, hosting] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -46,6 +46,9 @@ test("ships the finished editor without starter artifacts", async () => {
     readFile(new URL("../.github/workflows/deploy-pages.yml", import.meta.url), "utf8"),
     readFile(new URL("../github-pages/main.tsx", import.meta.url), "utf8"),
     readFile(new URL("../vite.github-pages.config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/analytics/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /^"use client";/);
@@ -105,6 +108,14 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.match(page, /identity-name-row/);
   assert.match(page, /without-handle/);
   assert.match(page, /made with Y_SUN/);
+  assert.match(page, /function trackAnalytics/);
+  assert.match(page, /trackAnalytics\("page_view"\)/);
+  assert.match(page, /trackAnalytics\("card_complete"\)/);
+  assert.match(page, /trackAnalytics\("png_download"\)/);
+  assert.match(page, /trackAnalytics\("share"\)/);
+  assert.match(page, /trackAnalytics\("copy_text"\)/);
+  assert.match(page, /function AnalyticsDashboard/);
+  assert.match(page, /익명 이용 현황 보기/);
   assert.match(page, /theme\.leafSoft/);
   assert.doesNotMatch(page, /ctx\.font\s*=\s*`[^`]*(Pretendard|Arial|Batang)/);
   assert.doesNotMatch(page, /className="section-number"/);
@@ -134,6 +145,12 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.match(pagesWorkflow, /pnpm run build:pages/);
   assert.match(pagesEntry, /import Home from "\.\.\/app\/page"/);
   assert.match(pagesConfig, /base: "\/saitgyeol\/"/);
+  assert.match(analyticsRoute, /INSERT INTO analytics_daily/);
+  assert.match(analyticsRoute, /INSERT OR IGNORE INTO analytics_visitors/);
+  assert.match(analyticsRoute, /crypto\.subtle\.digest\("SHA-256"/);
+  assert.match(schema, /analyticsDaily/);
+  assert.match(schema, /analyticsVisitors/);
+  assert.equal(JSON.parse(hosting).d1, "DB");
 
   await access(new URL("../public/og.png", import.meta.url));
   const retiredPreviewFiles = await readdir(
@@ -141,3 +158,4 @@ test("ships the finished editor without starter artifacts", async () => {
   ).catch(() => []);
   assert.deepEqual(retiredPreviewFiles, []);
 });
+
