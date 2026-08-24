@@ -272,8 +272,8 @@ const defaultData: CardData = {
   nickname: "모과",
   handle: "@mogwa_play",
   genre: "이터널 리턴",
-  phrase: "좋아하는 마음은 오래, 플레이는 가볍게.",
-  intro: "밤에 주로 접속하는 즐겜러예요. 낯은 가리지만 마음은 빨리 열려요.",
+  phrase: "",
+  intro: "",
   profileImage: "",
   imageZoom: 100,
   imageX: 50,
@@ -291,7 +291,7 @@ const defaultData: CardData = {
   breakup: "블언블",
   goodMatch: "천천히 친해져도 괜찮은 분, 플레이 실수에 너그러운 분",
   notMatch: "무례한 말이나 승패로 사람을 탓하는 분위기는 어려워요.",
-  memo: "우리의 속도가 달라도 오래 좋아할 수 있으면 좋겠어요.",
+  memo: "",
   theme: "apricot",
   customTone: "",
   ratio: "landscape",
@@ -382,7 +382,7 @@ function canvasFont(weight: number, size: number, family: "sans" | "serif" = "sa
 
 async function loadCardFonts(data: CardData) {
   const sample = [
-    "사잇결 취향 기록 나의 한 장 나의 취향 선호 모드 플레이 결 좋아하는 것 최애 주캐 교류 방식 좋아하는 교류 타 장르 이별은 잘 맞아요 안 맞아요 랭크 한마디",
+    "선호 모드 플레이 성향 최애 주캐 교류 방식 좋아하는 교류 타 장르 이별은 잘 맞아요 안 맞아요 랭크 접속 보이스 한마디",
     data.nickname,
     data.handle,
     data.genre,
@@ -512,13 +512,6 @@ function normalizeStoredData(value: LegacyStoredCardData) {
         ? value.ratio
         : emptyData.ratio,
   } satisfies CardData;
-}
-
-function formatCardDate(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}.${month}.${day}`;
 }
 
 function hasPersonalContent(data: CardData) {
@@ -692,7 +685,6 @@ function PaperPhoto({ data }: { data: CardData }) {
           </div>
         )}
       </div>
-      <span className="photo-caption">나의 한 장</span>
     </div>
   );
 }
@@ -744,12 +736,6 @@ function CardPreview({ data }: { data: CardData }) {
       <span className="contour contour-one" aria-hidden="true" />
       <span className="contour contour-two" aria-hidden="true" />
       <span className="stitch stitch-one" aria-hidden="true" />
-      <header className="card-masthead">
-        <span className="card-brand">사잇결</span>
-        <span>취향 기록</span>
-        <span className="card-index">{formatCardDate()}</span>
-      </header>
-
       <div className="profile-composition">
         <PaperPhoto data={data} />
         <div className="identity-copy">
@@ -768,9 +754,6 @@ function CardPreview({ data }: { data: CardData }) {
         <div className={cn("card-information", !hasPlayNotes && "only-favorites", !favoriteRows.length && "only-play") }>
           {hasPlayNotes && (
             <section className="play-notes">
-              <div className="section-title-row">
-                <h3>나의 취향</h3>
-              </div>
               {details.length > 0 && (
                 <div className="micro-details">
                   {details.map((detail) => (
@@ -793,7 +776,7 @@ function CardPreview({ data }: { data: CardData }) {
                   )}
                   {data.playStyles.length > 0 && (
                     <div className="preference-group">
-                      <strong>플레이 결</strong>
+                      <strong>플레이 성향</strong>
                       <div className="tag-block is-style">
                         {data.playStyles.map((item) => <span key={item}>{item}</span>)}
                       </div>
@@ -806,9 +789,6 @@ function CardPreview({ data }: { data: CardData }) {
 
           {favoriteRows.length > 0 && (
             <section className="favorite-notes">
-              <div className="section-title-row">
-                <h3>좋아하는 것</h3>
-              </div>
               <ul>
                 {favoriteRows.map((favorite) => (
                   <li key={favorite.label}>
@@ -828,23 +808,17 @@ function CardPreview({ data }: { data: CardData }) {
             <h3>교류 방식</h3>
             <div className="connection-summary">
               {data.activities.length > 0 && (
-                <div className="connection-activities">
-                  <strong>좋아하는 교류</strong>
-                  <div className="tag-block is-activity">
-                    {data.activities.map((item) => <span key={item}>{item}</span>)}
-                  </div>
+                <div className="connection-detail connection-activities">
+                  <span>좋아하는 교류</span>
+                  <strong>{data.activities.join(" · ")}</strong>
                 </div>
               )}
-              {socialNotes.length > 0 && (
-                <div className="card-social-line">
-                  {socialNotes.map((note) => (
-                    <span className="social-note" key={note.label}>
-                      <strong>{note.label}</strong>
-                      <span>{note.value}</span>
-                    </span>
-                  ))}
+              {socialNotes.map((note) => (
+                <div className="connection-detail social-note" key={note.label}>
+                  <span>{note.label}</span>
+                  <strong>{note.value}</strong>
                 </div>
-              )}
+              ))}
             </div>
           </div>
 
@@ -867,10 +841,11 @@ function CardPreview({ data }: { data: CardData }) {
         </section>
       )}
 
-      <footer className="card-footer">
-        {data.memo.trim() ? <p>{data.memo}</p> : <span aria-hidden="true" />}
-        <span>made with Y_SUN</span>
-      </footer>
+      {data.memo.trim() && (
+        <footer className="card-footer">
+          <p>{data.memo}</p>
+        </footer>
+      )}
     </article>
   );
 }
@@ -1093,22 +1068,6 @@ async function renderCard(data: CardData) {
   const left = pad;
   const right = width - pad;
   const top = pad;
-  ctx.fillStyle = theme.ink;
-  ctx.font = canvasFont(700, (isSparse ? 26 : 23) * unit);
-  ctx.fillText("사잇결", left, top + 16 * unit);
-  ctx.font = canvasFont(600, (isSparse ? 14 : 12) * unit);
-  ctx.fillText("취향 기록", left + 86 * unit, top + 15 * unit);
-  ctx.textAlign = "right";
-  ctx.fillText(formatCardDate(), right, top + 15 * unit);
-  ctx.textAlign = "left";
-  ctx.strokeStyle = theme.ink;
-  ctx.globalAlpha = 0.45;
-  ctx.beginPath();
-  ctx.moveTo(left, top + 34 * unit);
-  ctx.lineTo(right, top + 34 * unit);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-
   const photoX = isSparse
     ? left + (portrait ? 30 : square ? 40 : 70) * unit
     : left;
@@ -1118,7 +1077,7 @@ async function renderCard(data: CardData) {
         : square
           ? (data.intro.trim() ? 245 : 300)
           : (data.intro.trim() ? 250 : 300)) * unit
-    : top + 72 * unit;
+    : top + 22 * unit;
   const photoSize = isSparse
     ? (portrait ? 360 : square ? 340 : 410) * unit
     : portrait
@@ -1132,8 +1091,8 @@ async function renderCard(data: CardData) {
   ctx.fillStyle = theme.photoPaper;
   ctx.strokeStyle = theme.ink;
   ctx.lineWidth = 2.2 * unit;
-  ctx.fillRect(0, 0, photoSize + 24 * unit, photoSize + 62 * unit);
-  ctx.strokeRect(0, 0, photoSize + 24 * unit, photoSize + 62 * unit);
+  ctx.fillRect(0, 0, photoSize + 24 * unit, photoSize + 36 * unit);
+  ctx.strokeRect(0, 0, photoSize + 24 * unit, photoSize + 36 * unit);
   ctx.save();
   ctx.beginPath();
   ctx.rect(12 * unit, 12 * unit, photoSize, photoSize);
@@ -1159,9 +1118,6 @@ async function renderCard(data: CardData) {
     ctx.textAlign = "left";
   }
   ctx.restore();
-  ctx.fillStyle = theme.ink;
-  ctx.font = canvasFont(600, (isSparse ? 15 : 12) * unit);
-  ctx.fillText("나의 한 장", 13 * unit, photoSize + 42 * unit);
   ctx.restore();
   ctx.save();
   ctx.translate(photoX + photoSize * 0.26, photoY - 16 * unit);
@@ -1243,7 +1199,7 @@ async function renderCard(data: CardData) {
     );
   }
 
-  let nextY = photoY + photoSize + (isSparse ? 123 : 119) * unit;
+  let nextY = photoY + photoSize + (isSparse ? 97 : 93) * unit;
   if (data.intro.trim()) {
     ctx.fillStyle = theme.ink;
     ctx.font = canvasFont(700, (isSparse ? 29 : 22) * unit);
@@ -1275,15 +1231,12 @@ async function renderCard(data: CardData) {
   const sectionWidth = splitInfo ? (right - left - columnGap) / 2 : right - left;
   const playWidth = splitInfo ? sectionWidth : right - left;
   const favoriteX = splitInfo ? left + sectionWidth + columnGap : left;
-  let favoriteTitleY = nextY;
   const sectionTitle = (x: number, y: number, title: string) => {
     ctx.fillStyle = theme.ink;
     ctx.font = canvasFont(600, 24 * unit, "serif");
     ctx.fillText(title, x, y + 1 * unit);
   };
-  if (hasPlayNotes) sectionTitle(left, nextY, "나의 취향");
-
-  const detailY = nextY + 38 * unit;
+  const detailY = nextY + 8 * unit;
   detailValues.forEach(([label, value], index) => {
     const x = left + (index % 3) * (playWidth / 3);
     const y = detailY + Math.floor(index / 3) * 55 * unit;
@@ -1339,11 +1292,11 @@ async function renderCard(data: CardData) {
     hasDrawnPreference = true;
   };
   drawPreferenceGroup("선호 모드", preferredModes, theme.accent);
-  drawPreferenceGroup("플레이 결", data.playStyles, theme.leaf);
+  drawPreferenceGroup("플레이 성향", data.playStyles, theme.leaf);
   const playBottomY = hasPlayNotes
     ? Math.max(detailY + (detailRows ? 44 : 0) * unit, preferenceY)
     : nextY;
-  favoriteTitleY = stackInfo ? playBottomY + 62 * unit : nextY;
+  const favoriteStartY = stackInfo ? playBottomY + 48 * unit : nextY + 28 * unit;
   if (stackInfo && favoriteRows.length) {
     ctx.strokeStyle = withAlpha(theme.ink, 0.2);
     ctx.lineWidth = 1 * unit;
@@ -1352,13 +1305,9 @@ async function renderCard(data: CardData) {
     ctx.lineTo(right, playBottomY + 24 * unit);
     ctx.stroke();
   }
-  if (favoriteRows.length) {
-    sectionTitle(favoriteX, favoriteTitleY, "좋아하는 것");
-  }
-
   favoriteRows.forEach((favorite, index) => {
     const x = favoriteX;
-    const y = favoriteTitleY + 44 * unit + index * 38 * unit;
+    const y = favoriteStartY + index * 38 * unit;
     ctx.fillStyle = index === 0 ? theme.accent : theme.leaf;
     ctx.font = canvasFont(600, 16 * unit);
     ctx.fillText(favorite.label, x, y);
@@ -1368,7 +1317,7 @@ async function renderCard(data: CardData) {
   });
 
   const favoriteBottomY = favoriteRows.length
-    ? favoriteTitleY + 58 * unit + (favoriteRows.length - 1) * 38 * unit
+    ? favoriteStartY + 14 * unit + (favoriteRows.length - 1) * 38 * unit
     : nextY;
   if (splitInfo) {
     ctx.strokeStyle = withAlpha(theme.ink, 0.2);
@@ -1386,7 +1335,14 @@ async function renderCard(data: CardData) {
   const connectionDividerY = hasPreferenceSections
     ? preferenceBottomY + 18 * unit
     : nextY - 8 * unit;
-  const relationY = connectionDividerY + 72 * unit;
+  const connectionItems = [
+    data.activities.length
+      ? { label: "좋아하는 교류", value: data.activities.join(" · "), color: theme.accent, surface: theme.accentSoft }
+      : null,
+    ...socialNotes.map((note) => ({ ...note, color: theme.ink, surface: theme.photoPaper })),
+  ].filter((item): item is { label: string; value: string; color: string; surface: string } => Boolean(item));
+  const connectionDetailY = connectionDividerY + 58 * unit;
+  const relationY = connectionDividerY + (connectionItems.length ? 146 : 72) * unit;
 
   if (data.activities.length || socialNotes.length || hasRelationship) {
     ctx.strokeStyle = withAlpha(theme.ink, 0.28);
@@ -1397,36 +1353,19 @@ async function renderCard(data: CardData) {
     ctx.stroke();
     sectionTitle(left, connectionDividerY + 36 * unit, "교류 방식");
 
-    const pillY = connectionDividerY + 15 * unit;
-    let summaryX = left + 150 * unit;
-    const drawSummaryPill = (text: string, color: string, surface: string) => {
-      const available = right - summaryX;
-      if (available < 42 * unit) return;
-      ctx.font = canvasFont(500, 14 * unit);
-      const value = ellipsizeText(ctx, text, available - 20 * unit);
-      const pillWidth = Math.min(available, ctx.measureText(value).width + 20 * unit);
-      roundedRect(ctx, summaryX, pillY, pillWidth, 28 * unit, 14 * unit);
-      ctx.fillStyle = surface;
-      ctx.fill();
-      ctx.strokeStyle = withAlpha(color, 0.34);
-      ctx.lineWidth = 1.25 * unit;
-      ctx.stroke();
-      ctx.fillStyle = color;
-      ctx.fillText(value, summaryX + 10 * unit, pillY + 20 * unit);
-      summaryX += pillWidth + 8 * unit;
-    };
-
-    if (data.activities.length) {
-      ctx.fillStyle = theme.accent;
-      ctx.font = canvasFont(600, 15 * unit);
-      ctx.fillText("좋아하는 교류", summaryX, pillY + 20 * unit);
-      summaryX += 102 * unit;
-      data.activities.forEach((activity) => {
-        drawSummaryPill(activity, theme.accent, theme.accentSoft);
-      });
-    }
-    socialNotes.forEach((note) => {
-      drawSummaryPill(`${note.label} ${note.value}`, theme.ink, theme.photoPaper);
+    const detailGap = 16 * unit;
+    const detailWidth = (right - left - detailGap * Math.max(0, connectionItems.length - 1)) / Math.max(1, connectionItems.length);
+    connectionItems.forEach((item, index) => {
+      const x = left + index * (detailWidth + detailGap);
+      ctx.fillStyle = item.surface;
+      ctx.fillRect(x, connectionDetailY, detailWidth, 72 * unit);
+      ctx.fillStyle = item.color;
+      ctx.fillRect(x, connectionDetailY, 5 * unit, 72 * unit);
+      ctx.font = canvasFont(600, item.label === "좋아하는 교류" ? 24 * unit : 18 * unit, item.label === "좋아하는 교류" ? "serif" : "sans");
+      drawEllipsizedText(ctx, item.label, x + 16 * unit, connectionDetailY + 26 * unit, detailWidth - 28 * unit);
+      ctx.fillStyle = theme.ink;
+      ctx.font = canvasFont(600, 21 * unit);
+      drawEllipsizedText(ctx, item.value, x + 16 * unit, connectionDetailY + 57 * unit, detailWidth - 28 * unit);
     });
   }
 
@@ -1452,7 +1391,7 @@ async function renderCard(data: CardData) {
     ctx.fillStyle = color;
     ctx.fill();
     ctx.fillStyle = color;
-    ctx.font = canvasFont(600, 18 * unit);
+    ctx.font = canvasFont(600, 24 * unit, "serif");
     ctx.fillText(label, x + 26 * unit, relationY + (portrait ? 32 : 30) * unit);
     ctx.fillStyle = theme.ink;
     ctx.font = canvasFont(500, (portrait ? 17 : 16) * unit);
@@ -1479,25 +1418,19 @@ async function renderCard(data: CardData) {
     );
   }
 
-  const footerY = height - pad - 22 * unit;
-  ctx.strokeStyle = theme.ink;
-  ctx.globalAlpha = 0.28;
-  ctx.beginPath();
-  ctx.moveTo(left, footerY - 32 * unit);
-  ctx.lineTo(right, footerY - 32 * unit);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = theme.ink;
   if (data.memo.trim()) {
+    const footerY = height - pad - 22 * unit;
+    ctx.strokeStyle = theme.ink;
+    ctx.globalAlpha = 0.28;
+    ctx.beginPath();
+    ctx.moveTo(left, footerY - 32 * unit);
+    ctx.lineTo(right, footerY - 32 * unit);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = theme.ink;
     ctx.font = canvasFont(700, 22 * unit, "serif");
-    drawEllipsizedText(ctx, `“${data.memo}”`, left, footerY, right - left - 190 * unit);
+    drawEllipsizedText(ctx, `“${data.memo}”`, left, footerY, right - left);
   }
-  ctx.textAlign = "right";
-  ctx.font = canvasFont(600, 12 * unit);
-  ctx.globalAlpha = 0.7;
-  ctx.fillText("made with Y_SUN", right, footerY);
-  ctx.globalAlpha = 1;
-  ctx.textAlign = "left";
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -1948,16 +1881,6 @@ export default function Home() {
 
   const postCopy = `${clampText(data.genre, "요즘 좋아하는 것")} 트친소 열어요 🌿\n${clampText(data.phrase, "마음 맞는 분을 기다려요.")}\n\n#트친소 #사잇결`;
 
-  const copyPost = async () => {
-    try {
-      await navigator.clipboard.writeText(postCopy);
-      trackAnalytics("copy_text");
-      setToast("게시글 문구를 복사했어요.");
-    } catch {
-      setToast("복사하지 못했어요. 브라우저 권한을 확인해 주세요.");
-    }
-  };
-
   const shareCard = async () => {
     if (!data.nickname.trim()) {
       setStep(0);
@@ -2017,23 +1940,6 @@ export default function Home() {
 
   return (
     <div className="site-page">
-      <header className="site-header">
-        <a className="wordmark" href="#top" aria-label="사잇결 처음으로">
-          <span className="wordmark-seal">결</span>
-          <span>
-            <strong>사잇결</strong>
-            <small>취향으로 잇는 트친소</small>
-          </span>
-        </a>
-        <div className="header-note">
-          <span className="privacy-dot" aria-hidden="true" />
-          사진과 입력 내용은 이 기기 안에서만 사용돼요
-        </div>
-        <a className="header-link" href="#maker">
-          바로 만들기 <span aria-hidden="true">↘</span>
-        </a>
-      </header>
-
       <main id="top">
         {isAndroidKakao && (
           <div className="kakao-browser-notice" role="alert">
@@ -2041,21 +1947,8 @@ export default function Home() {
             <span>오른쪽 위 ⋮ 메뉴에서 ‘다른 브라우저로 열기’를 선택해 주세요.</span>
           </div>
         )}
-        <section className="intro-band" aria-labelledby="main-title">
-          <div className="intro-copy">
-            <h1 id="main-title">
-              취향의 결을 모아,
-              <br />
-              <em>잘 맞을 사이</em>를 그려요.
-            </h1>
-          </div>
-          <div className="intro-aside">
-            <p>
-              보여주고 싶은 것만 골라 한 장에 담아보세요.
-              <br />
-              가입 없이, 천천히 써도 괜찮아요.
-            </p>
-          </div>
+        <section className="page-title" aria-labelledby="main-title">
+          <h1 id="main-title">트친소 시트 제작기</h1>
         </section>
 
         <section className="maker" id="maker" aria-label="트친소 카드 제작기">
@@ -2509,12 +2402,8 @@ export default function Home() {
               <button className="share-button" type="button" onClick={shareCard} disabled={exporting}>
                 공유하기
               </button>
-              <button className="copy-button" type="button" onClick={copyPost}>
-                게시글 문구 복사
-              </button>
             </div>
             <div className="preview-meta">
-              <span>서버 업로드 없음</span>
               <button type="button" onClick={resetCard}>처음부터 다시 쓰기</button>
             </div>
           </aside>
@@ -2524,7 +2413,6 @@ export default function Home() {
           <span>사잇결의 약속</span>
           <p>
             모두 채우지 않아도 괜찮아요. 나이와 성별처럼 꼭 필요하지 않은 질문은 처음부터 묻지 않았어요.
-            보여주고 싶은 취향과 편안한 관계의 방식을, 당신의 말로만 남겨보세요.
           </p>
           <i aria-hidden="true">↗</i>
         </section>
@@ -2555,4 +2443,5 @@ export default function Home() {
     </div>
   );
 }
+
 

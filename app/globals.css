@@ -158,6 +158,21 @@ a {
   font-weight: 800;
 }
 
+.page-title {
+  width: min(1500px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 34px 0 30px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.page-title h1 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 3vw, 44px);
+  font-weight: 650;
+  letter-spacing: -0.06em;
+}
+
 .intro-band {
   position: relative;
   width: min(1500px, calc(100% - 48px));
@@ -1183,7 +1198,7 @@ a {
 .paper-photo-wrap {
   position: relative;
   width: 100%;
-  padding: 1.2cqw 1.2cqw 2.7cqw;
+  padding: 1.2cqw;
   border: 0.15cqw solid var(--ink);
   background: var(--photo-paper);
   box-shadow: 0.65cqw 0.65cqw 0 color-mix(in srgb, var(--ink) 12%, transparent);
@@ -1244,16 +1259,6 @@ a {
   font-weight: 800;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-}
-
-.photo-caption {
-  position: absolute;
-  left: 1.2cqw;
-  bottom: 0.7cqw;
-  font-family: var(--font-sans);
-  font-size: 0.55em;
-  font-weight: 800;
-  letter-spacing: 0.12em;
 }
 
 .identity-copy {
@@ -1339,7 +1344,7 @@ a {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4cqw;
-  padding-top: 2.3cqw;
+  padding-top: 1.7cqw;
   border-top: 0.12cqw solid color-mix(in srgb, var(--ink) 32%, transparent);
 }
 
@@ -1381,7 +1386,7 @@ a {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.9cqw;
-  margin-top: 1.2cqw;
+  margin-top: 0;
 }
 
 .micro-detail {
@@ -1470,7 +1475,7 @@ a {
 }
 
 .favorite-notes ul {
-  margin: 0.75cqw 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -1515,15 +1520,6 @@ a {
   grid-template-columns: 1fr;
 }
 
-.card-social-line {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.55cqw;
-  margin: 0;
-  overflow: hidden;
-}
-
 .connection-section {
   display: grid;
   gap: 1.55cqw;
@@ -1534,9 +1530,8 @@ a {
 .connection-heading {
   min-width: 0;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 1.4cqw;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1cqw;
 }
 
 .connection-heading h3 {
@@ -1551,68 +1546,54 @@ a {
 .connection-summary {
   min-width: 0;
   display: flex;
-  align-items: center;
-  gap: 0.65cqw;
+  align-items: stretch;
+  gap: 0.9cqw;
   overflow: hidden;
 }
 
-.connection-activities {
+.connection-detail {
   min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.55cqw;
-  color: var(--accent);
-}
-
-.connection-activities > strong {
-  flex: 0 0 auto;
-  font-size: 0.62em;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.connection-activities .tag-block {
-  min-width: 0;
-  flex-wrap: nowrap;
-  overflow: hidden;
-}
-
-.connection-activities .tag-block span {
-  flex: 0 1 auto;
-  min-width: 0;
-  border-color: var(--accent);
+  flex: 1 1 0;
+  padding: 0.65cqw 0.8cqw;
+  border-left: 0.28cqw solid var(--accent);
   background: var(--accent-soft);
-  color: var(--accent);
+}
+
+.connection-detail > span,
+.connection-detail > strong {
+  display: block;
   overflow: hidden;
-  font-size: 0.62em;
-  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.connection-detail > span {
+  color: var(--accent);
+  font-size: 0.78em;
+  font-weight: 700;
+}
+
+.connection-detail > strong {
+  margin-top: 0.3em;
+  color: var(--ink);
+  font-size: 0.92em;
+  font-weight: 700;
+}
+
+.connection-activities > span {
+  font-family: var(--font-serif);
+  font-size: 1.15em;
+  font-weight: 600;
+  letter-spacing: -0.05em;
 }
 
 .social-note {
-  min-width: 0;
-  display: inline-flex;
-  flex: 0 1 auto;
-  align-items: center;
-  gap: 0.45em;
-  border: 0.08cqw solid color-mix(in srgb, var(--ink) 16%, transparent);
-  border-radius: 999px;
+  border-left-color: var(--leaf);
   background: var(--photo-paper);
-  padding: 0.34em 0.7em;
-  color: color-mix(in srgb, var(--ink) 78%, transparent);
-  font-size: 0.62em;
-  white-space: nowrap;
-}
-
-.social-note strong {
-  font-weight: 600;
 }
 
 .social-note > span {
-  overflow: hidden;
-  font-weight: 500;
-  text-overflow: ellipsis;
+  color: var(--leaf);
 }
 
 .relationship-grid section {
@@ -1632,8 +1613,10 @@ a {
 
 .relationship-label {
   color: var(--accent);
-  font-size: 0.78em;
+  font-family: var(--font-serif);
+  font-size: 1.15em;
   font-weight: 600;
+  letter-spacing: -0.05em;
 }
 
 .relationship-label.is-leaf {
@@ -1660,8 +1643,7 @@ a {
 .card-footer {
   margin-top: auto;
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2cqw;
+  grid-template-columns: 1fr;
   align-items: end;
   padding-top: 1.1cqw;
   border-top: 0.12cqw solid color-mix(in srgb, var(--ink) 32%, transparent);
@@ -1674,15 +1656,6 @@ a {
   font-size: 0.88em;
   font-weight: 700;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.card-footer span {
-  color: color-mix(in srgb, var(--ink) 70%, transparent);
-  font-family: var(--font-sans);
-  font-size: 0.5em;
-  font-weight: 800;
-  letter-spacing: 0.08em;
   white-space: nowrap;
 }
 
@@ -1750,8 +1723,7 @@ a {
 }
 
 .download-button,
-.share-button,
-.copy-button {
+.share-button {
   min-height: 48px;
   border: 1px solid var(--preview-ink);
   border-radius: 5px;
@@ -1778,19 +1750,11 @@ a {
   color: var(--preview-ink);
 }
 
-.copy-button {
-  grid-column: 1 / -1;
-  min-height: 42px;
-  border-color: color-mix(in srgb, var(--preview-ink) 46%, transparent);
-  background: rgba(255, 255, 255, 0.22);
-  color: var(--preview-ink);
-}
-
 .preview-meta {
   margin: 0 30px;
   padding: 15px 0 22px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
   border-top: 1px solid color-mix(in srgb, var(--preview-ink) 34%, transparent);
   color: color-mix(in srgb, var(--preview-ink) 78%, transparent);
@@ -2164,6 +2128,7 @@ select:focus-visible {
 @media (max-width: 960px) {
   .site-header,
   .intro-band,
+  .page-title,
   .maker,
   .closing-note {
     width: min(760px, calc(100% - 32px));
@@ -2299,6 +2264,15 @@ select:focus-visible {
   .intro-band {
     width: calc(100% - 28px);
     padding: 41px 0 34px;
+  }
+
+  .page-title {
+    width: calc(100% - 28px);
+    padding: 26px 0 22px;
+  }
+
+  .page-title h1 {
+    font-size: 30px;
   }
 
   .intro-copy h1 {
@@ -2549,4 +2523,5 @@ select:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
 

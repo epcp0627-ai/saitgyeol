@@ -29,11 +29,12 @@ test("server-renders the branded card maker", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
+  const visibleHtml = html.split('<div hidden="">')[0];
   assert.match(html, /<title>사잇결/);
-  assert.match(html, /취향의 결을 모아/);
-  assert.match(html, /잘 맞을 사이/);
-  assert.match(html, /트친소 카드/);
-  assert.match(html, /사진과 입력 내용은 이 기기 안에서만 사용돼요/);
+  assert.match(visibleHtml, /트친소 시트 제작기/);
+  assert.match(visibleHtml, /트친소 카드/);
+  assert.doesNotMatch(visibleHtml, /취향의 결을 모아|잘 맞을 사이|사진과 입력 내용은 이 기기 안에서만 사용돼요/);
+  assert.doesNotMatch(visibleHtml, /보여주고 싶은 취향과 편안한 관계의 방식을, 당신의 말로만 남겨보세요/);
   assert.doesNotMatch(html, /codex-preview|Building your site|react-loading-skeleton/);
 });
 
@@ -85,17 +86,17 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.match(page, /function RenderedCardPreview/);
   assert.match(page, /onPointerDown=\{startPhotoDrag\}/);
   assert.match(page, /drawPreferenceGroup\("선호 모드", preferredModes/);
-  assert.match(page, /drawPreferenceGroup\("플레이 결", data\.playStyles/);
+  assert.match(page, /drawPreferenceGroup\("플레이 성향", data\.playStyles/);
   assert.match(page, /const rowAdvance = 36 \* unit/);
   assert.match(page, /preferenceBottomY \+ 18 \* unit/);
-  assert.match(page, /connectionDividerY \+ 72 \* unit/);
+  assert.match(page, /connectionDetailY = connectionDividerY \+ 58 \* unit/);
   assert.match(page, /교류 방식/);
   assert.match(page, /좋아하는 교류/);
   assert.match(page, /안 맞아요/);
   assert.match(page, /customMode/);
   assert.match(page, /mainCharacter/);
-  assert.match(page, /<h3>나의 취향<\/h3>/);
-  assert.match(page, /sectionTitle\(left, nextY, "나의 취향"\)/);
+  assert.doesNotMatch(page, /<h3>나의 취향<\/h3>|sectionTitle\(left, nextY, "나의 취향"\)/);
+  assert.doesNotMatch(page, /<h3>좋아하는 것<\/h3>|sectionTitle\(favoriteX, favoriteTitleY, "좋아하는 것"\)/);
   assert.match(page, /<Field label="한마디"/);
   assert.match(page, /\{ label: "랭크", value: data\.rank\.trim\(\) \}/);
   assert.match(page, /\["랭크", data\.rank\.trim\(\)\]/);
@@ -107,7 +108,10 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.match(page, /isSparse \? \(portrait \|\| square \? 78 : 92\)/);
   assert.match(page, /identity-name-row/);
   assert.match(page, /without-handle/);
-  assert.match(page, /made with Y_SUN/);
+  assert.doesNotMatch(page, /made with Y_SUN|취향 기록|나의 한 장|formatCardDate/);
+  assert.doesNotMatch(page, /게시글 문구 복사|서버 업로드 없음/);
+  assert.match(page, /<h1 id="main-title">트친소 시트 제작기<\/h1>/);
+  assert.match(page, /const defaultData[\s\S]*?phrase: "",[\s\S]*?intro: "",[\s\S]*?memo: "",/);
   assert.match(page, /function trackAnalytics/);
   assert.match(page, /trackAnalytics\("page_view"\)/);
   assert.match(page, /trackAnalytics\("card_complete"\)/);
@@ -125,6 +129,9 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.match(layout, /\/og\.png/);
   assert.match(css, /--font-sans: "Noto Sans KR Variable"/);
   assert.match(css, /\.connection-activities/);
+  assert.match(css, /\.connection-detail[\s\S]*border-left: 0\.28cqw solid var\(--accent\)/);
+  assert.match(css, /\.connection-activities > span[\s\S]*font-size: 1\.15em/);
+  assert.match(css, /\.relationship-label[\s\S]*font-size: 1\.15em/);
   assert.match(css, /\.connection-section/);
   assert.match(css, /--tape:/);
   assert.match(css, /\.paper-tape[\s\S]*background: var\(--tape\)/);
@@ -158,4 +165,5 @@ test("ships the finished editor without starter artifacts", async () => {
   ).catch(() => []);
   assert.deepEqual(retiredPreviewFiles, []);
 });
+
 
