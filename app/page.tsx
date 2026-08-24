@@ -705,10 +705,10 @@ function CardPreview({ data }: { data: CardData }) {
     { label: "랭크", value: data.rank.trim() },
     { label: "접속", value: data.times.join(" · ") },
     { label: "보이스", value: data.voice.trim() },
+    { label: "선호 모드", value: preferredModes.join(" · ") },
+    { label: "플레이 성향", value: data.playStyles.join(" · ") },
   ].filter((detail) => detail.value);
-  const hasPlayNotes = Boolean(
-    details.length || preferredModes.length || data.playStyles.length,
-  );
+  const hasPlayNotes = details.length > 0;
   const socialNotes = getSocialNotes(data);
   const hasConnectionNotes = Boolean(
     data.activities.length || socialNotes.length || data.goodMatch.trim() || data.notMatch.trim(),
@@ -762,26 +762,6 @@ function CardPreview({ data }: { data: CardData }) {
                       <strong>{detail.value}</strong>
                     </div>
                   ))}
-                </div>
-              )}
-              {(preferredModes.length > 0 || data.playStyles.length > 0) && (
-                <div className="preference-groups">
-                  {preferredModes.length > 0 && (
-                    <div className="preference-group">
-                      <strong>선호 모드</strong>
-                      <div className="tag-block is-mode">
-                        {preferredModes.map((item) => <span key={item}>{item}</span>)}
-                      </div>
-                    </div>
-                  )}
-                  {data.playStyles.length > 0 && (
-                    <div className="preference-group">
-                      <strong>플레이 성향</strong>
-                      <div className="tag-block is-style">
-                        {data.playStyles.map((item) => <span key={item}>{item}</span>)}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </section>
@@ -1024,10 +1004,10 @@ async function renderCard(data: CardData) {
     ["랭크", data.rank.trim()],
     ["접속", data.times.join(" · ")],
     ["보이스", data.voice.trim()],
+    ["선호 모드", preferredModes.join(" · ")],
+    ["플레이 성향", data.playStyles.join(" · ")],
   ].filter((detail): detail is [string, string] => Boolean(detail[1]));
-  const hasPlayNotes = Boolean(
-    detailValues.length || preferredModes.length || data.playStyles.length,
-  );
+  const hasPlayNotes = detailValues.length > 0;
   const socialNotes = getSocialNotes(data);
   const hasRelationship = Boolean(data.goodMatch.trim() || data.notMatch.trim());
   const hasBodyContent = Boolean(
@@ -1250,51 +1230,8 @@ async function renderCard(data: CardData) {
   });
 
   const detailRows = detailValues.length ? Math.ceil(detailValues.length / 3) : 0;
-  let preferenceY = detailY + detailRows * 52 * unit;
-  let hasDrawnPreference = false;
-  const drawPreferenceGroup = (
-    label: string,
-    tags: string[],
-    color: string,
-  ) => {
-    if (!tags.length) return;
-    if (hasDrawnPreference) preferenceY += 8 * unit;
-    const labelWidth = 104 * unit;
-    const pillHeight = 30 * unit;
-    const rowAdvance = 36 * unit;
-    const tagLeft = left + labelWidth;
-    const tagRight = left + playWidth;
-    let rowY = preferenceY;
-
-    ctx.fillStyle = color;
-    ctx.font = canvasFont(600, 18 * unit);
-    ctx.fillText(label, left, rowY + 21 * unit);
-
-    let tagX = tagLeft;
-    ctx.font = canvasFont(600, 18 * unit);
-    tags.forEach((tag) => {
-      const desiredWidth = ctx.measureText(tag).width + 24 * unit;
-      if (tagX > tagLeft && tagX + desiredWidth > tagRight) {
-        rowY += rowAdvance;
-        tagX = tagLeft;
-      }
-      const available = tagRight - tagX;
-      const tagWidth = Math.min(desiredWidth, available);
-      roundedRect(ctx, tagX, rowY, tagWidth, pillHeight, pillHeight / 2);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5 * unit;
-      ctx.stroke();
-      ctx.fillStyle = color;
-      drawEllipsizedText(ctx, tag, tagX + 12 * unit, rowY + 21 * unit, tagWidth - 20 * unit);
-      tagX += tagWidth + 7 * unit;
-    });
-    preferenceY = rowY + pillHeight;
-    hasDrawnPreference = true;
-  };
-  drawPreferenceGroup("선호 모드", preferredModes, theme.accent);
-  drawPreferenceGroup("플레이 성향", data.playStyles, theme.leaf);
   const playBottomY = hasPlayNotes
-    ? Math.max(detailY + (detailRows ? 44 : 0) * unit, preferenceY)
+    ? detailY + detailRows * 52 * unit
     : nextY;
   const favoriteStartY = stackInfo ? playBottomY + 48 * unit : nextY + 28 * unit;
   if (stackInfo && favoriteRows.length) {
@@ -1361,7 +1298,7 @@ async function renderCard(data: CardData) {
       ctx.fillRect(x, connectionDetailY, detailWidth, 72 * unit);
       ctx.fillStyle = item.color;
       ctx.fillRect(x, connectionDetailY, 5 * unit, 72 * unit);
-      ctx.font = canvasFont(600, item.label === "좋아하는 교류" ? 24 * unit : 18 * unit, item.label === "좋아하는 교류" ? "serif" : "sans");
+      ctx.font = canvasFont(600, 24 * unit, "serif");
       drawEllipsizedText(ctx, item.label, x + 16 * unit, connectionDetailY + 26 * unit, detailWidth - 28 * unit);
       ctx.fillStyle = theme.ink;
       ctx.font = canvasFont(600, 21 * unit);
@@ -1394,15 +1331,15 @@ async function renderCard(data: CardData) {
     ctx.font = canvasFont(600, 24 * unit, "serif");
     ctx.fillText(label, x + 26 * unit, relationY + (portrait ? 32 : 30) * unit);
     ctx.fillStyle = theme.ink;
-    ctx.font = canvasFont(500, (portrait ? 17 : 16) * unit);
+    ctx.font = canvasFont(600, 21 * unit);
     drawWrappedText(
       ctx,
       value,
       x + 26 * unit,
       relationY + (portrait ? 62 : 50) * unit,
       relationWidth - 52 * unit,
-      (portrait ? 23 : 17) * unit,
-      portrait || square ? 4 : 3,
+      (portrait ? 28 : 25) * unit,
+      portrait ? 4 : square ? 3 : 2,
     );
   };
   if (data.goodMatch.trim()) {
@@ -2443,5 +2380,4 @@ export default function Home() {
     </div>
   );
 }
-
 
