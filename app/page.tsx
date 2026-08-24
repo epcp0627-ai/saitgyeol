@@ -702,13 +702,14 @@ function CardPreview({ data }: { data: CardData }) {
   const favoriteRows = getFavoriteRows(data);
   const preferredModes = getPreferredModes(data);
   const details = [
-    { label: "랭크", value: data.rank.trim() },
-    { label: "접속", value: data.times.join(" · ") },
-    { label: "보이스", value: data.voice.trim() },
-    { label: "선호 모드", value: preferredModes.join(" · ") },
-    { label: "플레이 성향", value: data.playStyles.join(" · ") },
+    { area: "rank", label: "랭크", value: data.rank.trim() },
+    { area: "access", label: "접속", value: data.times.join(" · ") },
+    { area: "voice", label: "보이스", value: data.voice.trim() },
+    { area: "mode", label: "선호 모드", value: preferredModes.join(" · ") },
+    { area: "style", label: "플레이 성향", value: data.playStyles.join(" · ") },
   ].filter((detail) => detail.value);
   const hasPlayNotes = details.length > 0;
+  const hasPrimaryDetails = details.some((detail) => ["rank", "access", "voice"].includes(detail.area));
   const socialNotes = getSocialNotes(data);
   const hasConnectionNotes = Boolean(
     data.activities.length || socialNotes.length || data.goodMatch.trim() || data.notMatch.trim(),
@@ -755,9 +756,9 @@ function CardPreview({ data }: { data: CardData }) {
           {hasPlayNotes && (
             <section className="play-notes">
               {details.length > 0 && (
-                <div className="micro-details">
+                <div className={cn("micro-details", !hasPrimaryDetails && "without-primary")}>
                   {details.map((detail) => (
-                    <div className="micro-detail" key={detail.label}>
+                    <div className={cn("micro-detail", `detail-${detail.area}`)} key={detail.label}>
                       <span>{detail.label}</span>
                       <strong>{detail.value}</strong>
                     </div>
@@ -1001,12 +1002,12 @@ async function renderCard(data: CardData) {
   const favoriteRows = getFavoriteRows(data);
   const preferredModes = getPreferredModes(data);
   const detailValues = [
-    ["랭크", data.rank.trim()],
-    ["접속", data.times.join(" · ")],
-    ["보이스", data.voice.trim()],
-    ["선호 모드", preferredModes.join(" · ")],
-    ["플레이 성향", data.playStyles.join(" · ")],
-  ].filter((detail): detail is [string, string] => Boolean(detail[1]));
+    { label: "랭크", value: data.rank.trim(), row: 0, column: 0, span: 1 },
+    { label: "접속", value: data.times.join(" · "), row: 0, column: 1, span: 1 },
+    { label: "보이스", value: data.voice.trim(), row: 0, column: 2, span: 1 },
+    { label: "선호 모드", value: preferredModes.join(" · "), row: 1, column: 0, span: 2 },
+    { label: "플레이 성향", value: data.playStyles.join(" · "), row: 1, column: 2, span: 1 },
+  ].filter((detail) => Boolean(detail.value));
   const hasPlayNotes = detailValues.length > 0;
   const socialNotes = getSocialNotes(data);
   const hasRelationship = Boolean(data.goodMatch.trim() || data.notMatch.trim());
@@ -1208,28 +1209,40 @@ async function renderCard(data: CardData) {
   const columnGap = 38 * unit;
   const stackInfo = portrait && hasPlayNotes && favoriteRows.length > 0;
   const splitInfo = !stackInfo && hasPlayNotes && favoriteRows.length > 0;
-  const sectionWidth = splitInfo ? (right - left - columnGap) / 2 : right - left;
-  const playWidth = splitInfo ? sectionWidth : right - left;
-  const favoriteX = splitInfo ? left + sectionWidth + columnGap : left;
+  const availableInfoWidth = right - left - (splitInfo ? columnGap : 0);
+  const playWidth = splitInfo ? availableInfoWidth * 0.66 : right - left;
+  const favoriteWidth = splitInfo ? availableInfoWidth - playWidth : right - left;
+  const favoriteX = splitInfo ? left + playWidth + columnGap : left;
   const sectionTitle = (x: number, y: number, title: string) => {
     ctx.fillStyle = theme.ink;
     ctx.font = canvasFont(600, 24 * unit, "serif");
     ctx.fillText(title, x, y + 1 * unit);
   };
   const detailY = nextY + 8 * unit;
-  detailValues.forEach(([label, value], index) => {
-    const x = left + (index % 3) * (playWidth / 3);
-    const y = detailY + Math.floor(index / 3) * 55 * unit;
+  const hasPrimaryDetails = detailValues.some((detail) => detail.row === 0);
+  const detailColumnWidth = playWidth / 3;
+  detailValues.forEach((detail) => {
+    const visibleRow = detail.row - (hasPrimaryDetails ? 0 : 1);
+    const x = left + detail.column * detailColumnWidth;
+    const y = detailY + visibleRow * 55 * unit;
     ctx.fillStyle = theme.ink;
     ctx.globalAlpha = 0.7;
     ctx.font = canvasFont(500, 18 * unit);
-    ctx.fillText(label, x, y);
+    ctx.fillText(detail.label, x, y);
     ctx.globalAlpha = 1;
     ctx.font = canvasFont(600, 23 * unit);
-    drawEllipsizedText(ctx, value, x, y + 28 * unit, playWidth / 3 - 8 * unit);
+    drawEllipsizedText(
+      ctx,
+      detail.value,
+      x,
+      y + 28 * unit,
+      detailColumnWidth * detail.span - 12 * unit,
+    );
   });
 
-  const detailRows = detailValues.length ? Math.ceil(detailValues.length / 3) : 0;
+  const detailRows = detailValues.length
+    ? Math.max(...detailValues.map((detail) => detail.row - (hasPrimaryDetails ? 0 : 1))) + 1
+    : 0;
   const playBottomY = hasPlayNotes
     ? detailY + detailRows * 52 * unit
     : nextY;
@@ -1250,7 +1263,7 @@ async function renderCard(data: CardData) {
     ctx.fillText(favorite.label, x, y);
     ctx.fillStyle = theme.ink;
     ctx.font = canvasFont(600, 22 * unit);
-    drawEllipsizedText(ctx, favorite.value, x + 58 * unit, y, sectionWidth - 64 * unit);
+    drawEllipsizedText(ctx, favorite.value, x + 58 * unit, y, favoriteWidth - 64 * unit);
   });
 
   const favoriteBottomY = favoriteRows.length
@@ -1336,7 +1349,7 @@ async function renderCard(data: CardData) {
       ctx,
       value,
       x + 26 * unit,
-      relationY + (portrait ? 62 : 50) * unit,
+      relationY + (portrait ? 70 : 60) * unit,
       relationWidth - 52 * unit,
       (portrait ? 28 : 25) * unit,
       portrait ? 4 : square ? 3 : 2,

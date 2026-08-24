@@ -86,8 +86,11 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.match(page, /function getSocialNotes/);
   assert.match(page, /function RenderedCardPreview/);
   assert.match(page, /onPointerDown=\{startPhotoDrag\}/);
-  assert.match(page, /\["선호 모드", preferredModes\.join\(" · "\)\]/);
-  assert.match(page, /\["플레이 성향", data\.playStyles\.join\(" · "\)\]/);
+  assert.match(page, /label: "선호 모드", value: preferredModes\.join\(" · "\), row: 1, column: 0, span: 2/);
+  assert.match(page, /label: "플레이 성향", value: data\.playStyles\.join\(" · "\), row: 1, column: 2, span: 1/);
+  assert.match(page, /availableInfoWidth \* 0\.66/);
+  assert.match(page, /detailColumnWidth \* detail\.span - 12 \* unit/);
+  assert.match(page, /relationY \+ \(portrait \? 70 : 60\) \* unit/);
   assert.doesNotMatch(page, /drawPreferenceGroup|tag-block/);
   assert.match(page, /preferenceBottomY \+ 18 \* unit/);
   assert.match(page, /connectionDetailY = connectionDividerY \+ 58 \* unit/);
@@ -99,8 +102,8 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.doesNotMatch(page, /<h3>나의 취향<\/h3>|sectionTitle\(left, nextY, "나의 취향"\)/);
   assert.doesNotMatch(page, /<h3>좋아하는 것<\/h3>|sectionTitle\(favoriteX, favoriteTitleY, "좋아하는 것"\)/);
   assert.match(page, /<Field label="한마디"/);
-  assert.match(page, /\{ label: "랭크", value: data\.rank\.trim\(\) \}/);
-  assert.match(page, /\["랭크", data\.rank\.trim\(\)\]/);
+  assert.match(page, /\{ area: "rank", label: "랭크", value: data\.rank\.trim\(\) \}/);
+  assert.match(page, /label: "랭크", value: data\.rank\.trim\(\), row: 0, column: 0, span: 1/);
   assert.match(page, /<Field label="랭크 · 티어 · 레벨"/);
   assert.doesNotMatch(page, /나의 취향 결|미리 알려요|마음을 담은 한 문장/);
   assert.doesNotMatch(page, /label: "등급"|\["등급"/);
@@ -136,6 +139,9 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.match(css, /\.connection-detail > span[\s\S]*font-family: var\(--font-serif\)[\s\S]*font-size: 1\.15em/);
   assert.match(css, /\.relationship-label[\s\S]*font-size: 1\.15em/);
   assert.match(css, /\.relationship-grid p[\s\S]*font-size: 0\.92em;[\s\S]*font-weight: 700/);
+  assert.match(css, /\.card-information[\s\S]*grid-template-columns: minmax\(0, 2fr\) minmax\(0, 1fr\)/);
+  assert.match(css, /grid-template-areas:[\s\S]*"mode mode style"/);
+  assert.match(css, /\.relationship-grid p[\s\S]*margin: 0\.92em 0 0/);
   assert.match(css, /\.connection-section/);
   assert.match(css, /--tape:/);
   assert.match(css, /\.paper-tape[\s\S]*background: var\(--tape\)/);
