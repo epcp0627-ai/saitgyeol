@@ -18,14 +18,13 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase: baseUrl,
-    title: "사잇결 — 취향으로 잇는 트친소 카드",
-    description:
-      "보여주고 싶은 취향과 편안한 관계의 방식을 한 장에 담는 트친소 카드 제작기.",
+    title: "사잇결",
+    description: "트친소 카드 메이커",
     applicationName: "사잇결",
     keywords: ["트친소", "트친소표", "트친소 카드", "친구 소개", "사잇결"],
     openGraph: {
-      title: "사잇결 — 취향으로 잇는 트친소 카드",
-      description: "취향의 결을 모아, 잘 맞을 사이를 그려요.",
+      title: "사잇결",
+      description: "트친소 카드 메이커",
       type: "website",
       locale: "ko_KR",
       siteName: "사잇결",
@@ -34,14 +33,14 @@ export async function generateMetadata(): Promise<Metadata> {
           url: socialImage,
           width: 1536,
           height: 1024,
-          alt: "사잇결 — 취향의 결을 모아, 잘 맞을 사이를 그려요.",
+          alt: "사잇결 — 트친소 카드 메이커",
         },
       ],
     },
     twitter: {
       card: "summary_large_image",
-      title: "사잇결 — 취향으로 잇는 트친소 카드",
-      description: "취향의 결을 모아, 잘 맞을 사이를 그려요.",
+      title: "사잇결",
+      description: "트친소 카드 메이커",
       images: [socialImage],
     },
   };

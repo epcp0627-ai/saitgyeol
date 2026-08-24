@@ -30,7 +30,8 @@ test("server-renders the branded card maker", async () => {
 
   const html = await response.text();
   const visibleHtml = html.split('<div hidden="">')[0];
-  assert.match(html, /<title>사잇결/);
+  assert.match(html, /<title>사잇결<\/title>/);
+  assert.match(html, /<meta name="description" content="트친소 카드 메이커"/);
   assert.match(visibleHtml, /트친소 시트 제작기/);
   assert.match(visibleHtml, /트친소 카드/);
   assert.doesNotMatch(visibleHtml, /취향의 결을 모아|잘 맞을 사이|사진과 입력 내용은 이 기기 안에서만 사용돼요/);
@@ -127,6 +128,9 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.match(layout, /@fontsource-variable\/noto-sans-kr/);
   assert.match(layout, /@fontsource-variable\/noto-serif-kr/);
   assert.match(layout, /\/og\.png/);
+  assert.match(layout, /title: "사잇결"/);
+  assert.match(layout, /description: "트친소 카드 메이커"/);
+  assert.doesNotMatch(layout, /취향의 결을 모아|잘 맞을 사이를 그려요/);
   assert.match(css, /--font-sans: "Noto Sans KR Variable"/);
   assert.match(css, /\.connection-activities/);
   assert.match(css, /\.connection-detail[\s\S]*border-left: 0\.28cqw solid var\(--accent\)/);
@@ -165,5 +169,4 @@ test("ships the finished editor without starter artifacts", async () => {
   ).catch(() => []);
   assert.deepEqual(retiredPreviewFiles, []);
 });
-
 
