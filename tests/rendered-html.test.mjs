@@ -89,8 +89,9 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.match(page, /label: "선호 모드", value: preferredModes\.join\(" · "\), row: 1, column: 0, span: 2/);
   assert.match(page, /label: "플레이 성향", value: data\.playStyles\.join\(" · "\), row: 1, column: 2, span: 1/);
   assert.match(page, /availableInfoWidth \* 0\.66/);
-  assert.match(page, /detailColumnWidth \* detail\.span - 12 \* unit/);
-  assert.match(page, /relationY \+ \(portrait \? 70 : 60\) \* unit/);
+  assert.match(page, /detailColumnWidth \* detail\.span \+ infoBlockGap \* \(detail\.span - 1\)/);
+  assert.match(page, /const relationHeight = portrait \? 180 \* unit : square \? 132 \* unit : 110 \* unit/);
+  assert.match(page, /ctx\.fillRect\(x, relationY, 5 \* unit, relationHeight\)/);
   assert.doesNotMatch(page, /drawPreferenceGroup|tag-block/);
   assert.match(page, /preferenceBottomY \+ 18 \* unit/);
   assert.match(page, /connectionDetailY = connectionDividerY \+ 58 \* unit/);
@@ -102,6 +103,8 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.doesNotMatch(page, /<h3>나의 취향<\/h3>|sectionTitle\(left, nextY, "나의 취향"\)/);
   assert.doesNotMatch(page, /<h3>좋아하는 것<\/h3>|sectionTitle\(favoriteX, favoriteTitleY, "좋아하는 것"\)/);
   assert.match(page, /<Field label="한마디"/);
+  assert.match(page, /<h3 className="form-group-title">자기소개<\/h3>/);
+  assert.doesNotMatch(page, /<h3 className="form-group-title">플레이 취향<\/h3>/);
   assert.match(page, /\{ area: "rank", label: "랭크", value: data\.rank\.trim\(\) \}/);
   assert.match(page, /label: "랭크", value: data\.rank\.trim\(\), row: 0, column: 0, span: 1/);
   assert.match(page, /<Field label="랭크 · 티어 · 레벨"/);
@@ -151,7 +154,7 @@ test("ships the finished editor without starter artifacts", async () => {
   assert.match(css, /\.custom-color-picker/);
   assert.match(css, /\.kakao-browser-notice/);
   assert.match(css, /white-space: pre-line/);
-  assert.match(css, /box-shadow: inset 0\.32cqw 0 0 var\(--accent\)/);
+  assert.match(css, /\.relationship-grid section[\s\S]*border-left: 0\.28cqw solid var\(--accent\)/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
   assert.match(packageJson, /"name": "saitgyeol-friend-card-maker"/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);

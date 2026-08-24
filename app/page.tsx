@@ -1220,23 +1220,28 @@ async function renderCard(data: CardData) {
   };
   const detailY = nextY + 8 * unit;
   const hasPrimaryDetails = detailValues.some((detail) => detail.row === 0);
-  const detailColumnWidth = playWidth / 3;
+  const infoBlockGap = 14 * unit;
+  const infoBlockHeight = 72 * unit;
+  const detailColumnWidth = (playWidth - infoBlockGap * 2) / 3;
   detailValues.forEach((detail) => {
     const visibleRow = detail.row - (hasPrimaryDetails ? 0 : 1);
-    const x = left + detail.column * detailColumnWidth;
-    const y = detailY + visibleRow * 55 * unit;
+    const x = left + detail.column * (detailColumnWidth + infoBlockGap);
+    const y = detailY + visibleRow * (infoBlockHeight + infoBlockGap);
+    const blockWidth = detailColumnWidth * detail.span + infoBlockGap * (detail.span - 1);
+    ctx.fillStyle = theme.accentSoft;
+    ctx.fillRect(x, y, blockWidth, infoBlockHeight);
+    ctx.fillStyle = theme.accent;
+    ctx.fillRect(x, y, 5 * unit, infoBlockHeight);
+    ctx.font = canvasFont(600, 24 * unit, "serif");
+    drawEllipsizedText(ctx, detail.label, x + 16 * unit, y + 26 * unit, blockWidth - 28 * unit);
     ctx.fillStyle = theme.ink;
-    ctx.globalAlpha = 0.7;
-    ctx.font = canvasFont(500, 18 * unit);
-    ctx.fillText(detail.label, x, y);
-    ctx.globalAlpha = 1;
-    ctx.font = canvasFont(600, 23 * unit);
+    ctx.font = canvasFont(600, 21 * unit);
     drawEllipsizedText(
       ctx,
       detail.value,
-      x,
-      y + 28 * unit,
-      detailColumnWidth * detail.span - 12 * unit,
+      x + 16 * unit,
+      y + 57 * unit,
+      blockWidth - 28 * unit,
     );
   });
 
@@ -1244,9 +1249,9 @@ async function renderCard(data: CardData) {
     ? Math.max(...detailValues.map((detail) => detail.row - (hasPrimaryDetails ? 0 : 1))) + 1
     : 0;
   const playBottomY = hasPlayNotes
-    ? detailY + detailRows * 52 * unit
+    ? detailY + detailRows * infoBlockHeight + Math.max(0, detailRows - 1) * infoBlockGap
     : nextY;
-  const favoriteStartY = stackInfo ? playBottomY + 48 * unit : nextY + 28 * unit;
+  const favoriteStartY = stackInfo ? playBottomY + 48 * unit : detailY;
   if (stackInfo && favoriteRows.length) {
     ctx.strokeStyle = withAlpha(theme.ink, 0.2);
     ctx.lineWidth = 1 * unit;
@@ -1257,17 +1262,22 @@ async function renderCard(data: CardData) {
   }
   favoriteRows.forEach((favorite, index) => {
     const x = favoriteX;
-    const y = favoriteStartY + index * 38 * unit;
-    ctx.fillStyle = index === 0 ? theme.accent : theme.leaf;
-    ctx.font = canvasFont(600, 16 * unit);
-    ctx.fillText(favorite.label, x, y);
+    const y = favoriteStartY + index * (infoBlockHeight + infoBlockGap);
+    const color = index === 0 ? theme.accent : theme.leaf;
+    const surface = index === 0 ? theme.accentSoft : theme.leafSoft;
+    ctx.fillStyle = surface;
+    ctx.fillRect(x, y, favoriteWidth, infoBlockHeight);
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, 5 * unit, infoBlockHeight);
+    ctx.font = canvasFont(600, 24 * unit, "serif");
+    drawEllipsizedText(ctx, favorite.label, x + 16 * unit, y + 26 * unit, favoriteWidth - 28 * unit);
     ctx.fillStyle = theme.ink;
-    ctx.font = canvasFont(600, 22 * unit);
-    drawEllipsizedText(ctx, favorite.value, x + 58 * unit, y, favoriteWidth - 64 * unit);
+    ctx.font = canvasFont(600, 21 * unit);
+    drawEllipsizedText(ctx, favorite.value, x + 16 * unit, y + 57 * unit, favoriteWidth - 28 * unit);
   });
 
   const favoriteBottomY = favoriteRows.length
-    ? favoriteStartY + 14 * unit + (favoriteRows.length - 1) * 38 * unit
+    ? favoriteStartY + favoriteRows.length * infoBlockHeight + (favoriteRows.length - 1) * infoBlockGap
     : nextY;
   if (splitInfo) {
     ctx.strokeStyle = withAlpha(theme.ink, 0.2);
@@ -1319,7 +1329,7 @@ async function renderCard(data: CardData) {
     });
   }
 
-  const relationHeight = portrait ? 180 * unit : square ? 112 * unit : 94 * unit;
+  const relationHeight = portrait ? 180 * unit : square ? 132 * unit : 110 * unit;
   const bothRelationships = Boolean(data.goodMatch.trim() && data.notMatch.trim());
   const relationWidth = bothRelationships
     ? (right - left - columnGap) / 2
@@ -1331,28 +1341,28 @@ async function renderCard(data: CardData) {
     label: string,
     value: string,
   ) => {
-    roundedRect(ctx, x, relationY, relationWidth, relationHeight, 8 * unit);
     ctx.fillStyle = surface;
-    ctx.fill();
-    ctx.strokeStyle = withAlpha(color, 0.48);
-    ctx.lineWidth = 1.6 * unit;
-    ctx.stroke();
-    roundedRect(ctx, x + 10 * unit, relationY + 12 * unit, 5 * unit, relationHeight - 24 * unit, 2.5 * unit);
+    ctx.fillRect(x, relationY, relationWidth, relationHeight);
     ctx.fillStyle = color;
-    ctx.fill();
-    ctx.fillStyle = color;
+    ctx.fillRect(x, relationY, 5 * unit, relationHeight);
     ctx.font = canvasFont(600, 24 * unit, "serif");
-    ctx.fillText(label, x + 26 * unit, relationY + (portrait ? 32 : 30) * unit);
+    ctx.fillText(label, x + 16 * unit, relationY + (portrait ? 32 : 30) * unit);
     ctx.fillStyle = theme.ink;
     ctx.font = canvasFont(600, 21 * unit);
+    const textOffset = (portrait ? 70 : 60) * unit;
+    const lineHeight = (portrait ? 28 : 25) * unit;
+    const maxLines = Math.max(
+      2,
+      Math.floor((relationHeight - textOffset - 12 * unit) / lineHeight) + 1,
+    );
     drawWrappedText(
       ctx,
       value,
-      x + 26 * unit,
-      relationY + (portrait ? 70 : 60) * unit,
-      relationWidth - 52 * unit,
-      (portrait ? 28 : 25) * unit,
-      portrait ? 4 : square ? 3 : 2,
+      x + 16 * unit,
+      relationY + textOffset,
+      relationWidth - 32 * unit,
+      lineHeight,
+      maxLines,
     );
   };
   if (data.goodMatch.trim()) {
@@ -2090,7 +2100,7 @@ export default function Home() {
 
               {step === 1 && (
                 <div className="form-stack">
-                  <h3 className="form-group-title">플레이 취향</h3>
+                  <h3 className="form-group-title">자기소개</h3>
                   <div className="two-fields">
                     <Field label="최애" hint={`${data.favorite.length}/32`}>
                       <input
